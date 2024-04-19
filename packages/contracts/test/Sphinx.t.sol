@@ -46,7 +46,7 @@ contract Sphinx_Test is Sphinx_Test_Abstract {
     function test_sphinxModule_success_standard() external {
         IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe(sphinxConfig));
 
-        (address[] memory modules, ) = safeProxy.getModulesPaginated(address(0x1), 1);
+        (address[] memory modules,) = safeProxy.getModulesPaginated(address(0x1), 1);
         address sphinxModule = modules[0];
 
         address expectedAddress = this.sphinxModule();
@@ -58,7 +58,7 @@ contract Sphinx_Test is Sphinx_Test_Abstract {
         sphinxConfig.saltNonce = 1;
         IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe(sphinxConfig));
 
-        (address[] memory modules, ) = safeProxy.getModulesPaginated(address(0x1), 1);
+        (address[] memory modules,) = safeProxy.getModulesPaginated(address(0x1), 1);
         address sphinxModule = modules[0];
 
         address expectedAddress = this.sphinxModule();
@@ -79,10 +79,8 @@ contract Sphinx_Test is Sphinx_Test_Abstract {
         });
 
         assertEq(deploymentInfo.encodedAccountAccesses.length, 1);
-        ParsedAccountAccess memory access = abi.decode(
-            deploymentInfo.encodedAccountAccesses[0],
-            (ParsedAccountAccess)
-        );
+        ParsedAccountAccess memory access =
+            abi.decode(deploymentInfo.encodedAccountAccesses[0], (ParsedAccountAccess));
         assertEq(access.root.chainInfo.chainId, expectedChainId);
         assertEq(access.root.accessor, safeAddress());
         assertEq(access.root.account, CREATE2_FACTORY);
@@ -136,9 +134,9 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
             _callDepth: defaultCallDepth + 1
         });
 
-        uint requestedFunds = 1 ether;
-        uint safeBalance = 1 ether;
-        uint zeroAddressBalance = 0 ether;
+        uint256 requestedFunds = 1 ether;
+        uint256 safeBalance = 1 ether;
+        uint256 zeroAddressBalance = 0 ether;
         assertCorrectValues(requestedFunds, safeBalance, zeroAddressBalance, deploymentInfo);
         assertCorrectFundCheckAction(deploymentInfo, 1 ether);
     }
@@ -154,9 +152,9 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
             _callDepth: defaultCallDepth + 1
         });
 
-        uint requestedFunds = 0.15 ether;
-        uint safeBalance = 0.15 ether;
-        uint zeroAddressBalance = 0 ether;
+        uint256 requestedFunds = 0.15 ether;
+        uint256 safeBalance = 0.15 ether;
+        uint256 zeroAddressBalance = 0 ether;
         assertCorrectValues(requestedFunds, safeBalance, zeroAddressBalance, deploymentInfo);
         assertCorrectFundCheckAction(deploymentInfo, 0.15 ether);
     }
@@ -164,18 +162,16 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
     function test_sphinxCollectProposal_success_fundSafe_less_than_max() external {
         deploySphinxSystem(getSystemContractInfo());
         FoundryDeploymentInfo memory deploymentInfo = this.sphinxCollectProposal({
-            _scriptFunctionCalldata: abi.encodeWithSelector(
-                this.runTransferFundsLessThanMax.selector
-            ),
+            _scriptFunctionCalldata: abi.encodeWithSelector(this.runTransferFundsLessThanMax.selector),
             _deploymentInfoPath: dummyDeploymentInfoPath,
             // The call depth is one greater than the default call depth because we're calling
             // `sphinxCollectProposal` from within a Forge test.
             _callDepth: defaultCallDepth + 1
         });
 
-        uint requestedFunds = 0.15 ether;
-        uint safeBalance = 0.15 ether;
-        uint zeroAddressBalance = 0 ether;
+        uint256 requestedFunds = 0.15 ether;
+        uint256 safeBalance = 0.15 ether;
+        uint256 zeroAddressBalance = 0 ether;
         assertCorrectValues(requestedFunds, safeBalance, zeroAddressBalance, deploymentInfo);
         assertCorrectFundCheckAction(deploymentInfo, 0.15 ether);
     }
@@ -190,9 +186,9 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
             _callDepth: defaultCallDepth + 1
         });
 
-        uint requestedFunds = 1 ether;
-        uint safeBalance = 0.85 ether;
-        uint zeroAddressBalance = 0.15 ether;
+        uint256 requestedFunds = 1 ether;
+        uint256 safeBalance = 0.85 ether;
+        uint256 zeroAddressBalance = 0.15 ether;
         assertCorrectValues(requestedFunds, safeBalance, zeroAddressBalance, deploymentInfo);
         assertCorrectFundCheckAction(deploymentInfo, 1 ether);
     }
@@ -210,9 +206,9 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
             _callDepth: defaultCallDepth + 1
         });
 
-        uint requestedFunds = 1 ether;
-        uint safeBalance = 0 ether;
-        uint zeroAddressBalance = 2 ether;
+        uint256 requestedFunds = 1 ether;
+        uint256 safeBalance = 0 ether;
+        uint256 zeroAddressBalance = 2 ether;
         assertCorrectValues(requestedFunds, safeBalance, zeroAddressBalance, deploymentInfo);
         assertCorrectFundCheckAction(deploymentInfo, 2 ether);
     }
@@ -229,9 +225,9 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
             _callDepth: defaultCallDepth + 1
         });
 
-        uint requestedFunds = 1 ether;
-        uint safeBalance = 0 ether;
-        uint zeroAddressBalance = 1 ether;
+        uint256 requestedFunds = 1 ether;
+        uint256 safeBalance = 0 ether;
+        uint256 zeroAddressBalance = 1 ether;
         assertCorrectValues(requestedFunds, safeBalance, zeroAddressBalance, deploymentInfo);
         assertCorrectFundCheckAction(deploymentInfo, 1 ether);
     }
@@ -277,9 +273,9 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
             _callDepth: defaultCallDepth + 1
         });
 
-        uint requestedFunds = 0.1 ether;
-        uint safeBalance = 0.08 ether;
-        uint zeroAddressBalance = 0.02 ether;
+        uint256 requestedFunds = 0.1 ether;
+        uint256 safeBalance = 0.08 ether;
+        uint256 zeroAddressBalance = 0.02 ether;
         assertCorrectValues(requestedFunds, safeBalance, zeroAddressBalance, deploymentInfo);
         assertCorrectFundCheckAction(deploymentInfo, 0.1 ether);
     }
@@ -295,9 +291,9 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
             _callDepth: defaultCallDepth + 1
         });
 
-        uint requestedFunds = 0.025 ether;
-        uint safeBalance = 0 ether;
-        uint zeroAddressBalance = 0.025 ether;
+        uint256 requestedFunds = 0.025 ether;
+        uint256 safeBalance = 0 ether;
+        uint256 zeroAddressBalance = 0.025 ether;
         assertCorrectValues(requestedFunds, safeBalance, zeroAddressBalance, deploymentInfo);
         assertCorrectFundCheckAction(deploymentInfo, 0.025 ether);
     }
@@ -321,17 +317,14 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
         // Ensure the Safe is deployed so we can test calling it with the balance check
         configureSphinx();
         deployModuleAndGnosisSafe(
-            sphinxConfig.owners,
-            sphinxConfig.threshold,
-            deploymentInfo.safeAddress
+            sphinxConfig.owners, sphinxConfig.threshold, deploymentInfo.safeAddress
         );
 
         // We have to prank the module or the call into the Safe will revert completely
         vm.startPrank(deploymentInfo.moduleAddress);
 
-        ParsedAccountAccess memory balanceCheckAccess = decodeParsedAccountAcccesses(
-            deploymentInfo
-        )[0];
+        ParsedAccountAccess memory balanceCheckAccess =
+            decodeParsedAccountAcccesses(deploymentInfo)[0];
         GnosisSafeTransaction memory txn = makeGnosisSafeTransaction(balanceCheckAccess.root);
 
         // Confirm the Safe does not have a balance (this triggers the failure we are testing)
@@ -339,10 +332,7 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
 
         // Execute the check balance action (we expect this to fail because the Safe is not funded)
         bool shouldFail = IGnosisSafe(deploymentInfo.safeAddress).execTransactionFromModule(
-            txn.to,
-            txn.value,
-            txn.txData,
-            txn.operation
+            txn.to, txn.value, txn.txData, txn.operation
         );
 
         // Expect the check balance action to fail because the Safe doesn't have the required funds
@@ -351,12 +341,10 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
         // Set the balance of the Safe
         vm.deal(safeAddress(), 1 ether);
 
-        // Execute the check balance action (we expect this to succeed because the Safe is now funded)
+        // Execute the check balance action (we expect this to succeed because the Safe is now
+        // funded)
         bool shouldSucceed = IGnosisSafe(deploymentInfo.safeAddress).execTransactionFromModule(
-            txn.to,
-            txn.value,
-            txn.txData,
-            txn.operation
+            txn.to, txn.value, txn.txData, txn.operation
         );
 
         // Expect the check balance action to fail because the Safe doesn't have the required funds
@@ -373,17 +361,17 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
             _callDepth: defaultCallDepth + 1
         });
 
-        uint requestedFunds = 0 ether;
-        uint safeBalance = 0 ether;
-        uint zeroAddressBalance = 0 ether;
+        uint256 requestedFunds = 0 ether;
+        uint256 safeBalance = 0 ether;
+        uint256 zeroAddressBalance = 0 ether;
         assertCorrectValues(requestedFunds, safeBalance, zeroAddressBalance, deploymentInfo);
 
         ParsedAccountAccess[] memory accesses = decodeParsedAccountAcccesses(deploymentInfo);
         assertEq(accesses.length, 1);
         assertEq(accesses[0].root.value, 0);
         assertEq(
-            uint(accesses[0].root.kind),
-            uint(VmSafe.AccountAccessKind.Create),
+            uint256(accesses[0].root.kind),
+            uint256(VmSafe.AccountAccessKind.Create),
             "incorrect type"
         );
     }
@@ -447,11 +435,13 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
     /////////////////////////////////// Custom Assertions //////////////////////////////////////
 
     function assertCorrectValues(
-        uint _requestedFunds,
-        uint _safeBalance,
-        uint _zeroAddressBalance,
+        uint256 _requestedFunds,
+        uint256 _safeBalance,
+        uint256 _zeroAddressBalance,
         FoundryDeploymentInfo memory _deploymentInfo
-    ) public {
+    )
+        public
+    {
         assertEq(safeAddress().balance, _safeBalance);
         assertEq(address(0).balance, _zeroAddressBalance);
         assertEq(_deploymentInfo.fundsRequestedForSafe, _requestedFunds);
@@ -459,15 +449,16 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
 
     function assertCorrectFundCheckAction(
         FoundryDeploymentInfo memory _deploymentInfo,
-        uint _expectedValue
-    ) public {
-        ParsedAccountAccess memory fundTransferAccess = decodeParsedAccountAcccesses(
-            _deploymentInfo
-        )[0];
+        uint256 _expectedValue
+    )
+        public
+    {
+        ParsedAccountAccess memory fundTransferAccess =
+            decodeParsedAccountAcccesses(_deploymentInfo)[0];
         assertEq(fundTransferAccess.root.accessor, _deploymentInfo.safeAddress);
         assertEq(fundTransferAccess.root.account, _deploymentInfo.safeAddress);
         assertEq(fundTransferAccess.root.value, _expectedValue);
-        assertEq(uint(fundTransferAccess.root.kind), uint(VmSafe.AccountAccessKind.Call));
+        assertEq(uint256(fundTransferAccess.root.kind), uint256(VmSafe.AccountAccessKind.Call));
         assertEq(fundTransferAccess.root.data, "");
         assertEq(fundTransferAccess.nested.length, 0);
     }

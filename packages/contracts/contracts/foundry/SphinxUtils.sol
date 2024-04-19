@@ -61,7 +61,7 @@ contract SphinxUtils is SphinxConstants {
     // Tracks if we've called the users `configureSphinx()` function yet
     bool internal calledConfigureSphinx = false;
 
-    function checkValidSafeFundingRequest(uint _value, uint _chainId) public pure {
+    function checkValidSafeFundingRequest(uint256 _value, uint256 _chainId) public pure {
         NetworkInfo memory info = findNetworkInfoByChainId(_chainId);
         if (info.dripSize < _value) {
             revert(
@@ -81,28 +81,32 @@ contract SphinxUtils is SphinxConstants {
         Vm.AccountAccess[] memory accountAccesses,
         bytes32 creationCodeHash,
         bytes32 runtimeCodeHash
-    ) public view returns (bool) {
-        // If there aren't two calls, (one to the deployment proxy, and another to deploy the contract)
+    )
+        public
+        view
+        returns (bool)
+    {
+        // If there aren't two calls, (one to the deployment proxy, and another to deploy the
+        // contract)
         // then return false.
         if (accountAccesses.length < 2) {
             return false;
         }
 
-        // If the first access does not record calling deterministic deployment proxy, then return false.
+        // If the first access does not record calling deterministic deployment proxy, then return
+        // false.
         if (accountAccesses[0].account != DETERMINISTIC_DEPLOYMENT_PROXY) {
             return false;
         }
 
-        address expectedAddress = vm.computeCreate2Address(
-            0,
-            creationCodeHash,
-            DETERMINISTIC_DEPLOYMENT_PROXY
-        );
+        address expectedAddress =
+            vm.computeCreate2Address(0, creationCodeHash, DETERMINISTIC_DEPLOYMENT_PROXY);
         if (accountAccesses[1].account != expectedAddress) {
             return false;
         }
 
-        // If the second access did not come from the deterministic deployment proxy, then return false
+        // If the second access did not come from the deterministic deployment proxy, then return
+        // false
         if (accountAccesses[1].accessor != DETERMINISTIC_DEPLOYMENT_PROXY) {
             return false;
         }
@@ -145,9 +149,11 @@ contract SphinxUtils is SphinxConstants {
      *         be called during a broadcast. If it's not view/pure, then this call would be
      *         broadcasted, which is not what we want.
      */
-    function getSphinxWalletsSortedByAddress(
-        uint256 _numWallets
-    ) internal pure returns (Wallet[] memory) {
+    function getSphinxWalletsSortedByAddress(uint256 _numWallets)
+        internal
+        pure
+        returns (Wallet[] memory)
+    {
         Wallet[] memory wallets = new Wallet[](_numWallets);
         for (uint256 i = 0; i < _numWallets; i++) {
             uint256 privateKey = getSphinxWalletPrivateKey(i);
@@ -168,9 +174,7 @@ contract SphinxUtils is SphinxConstants {
         return wallets;
     }
 
-    function decodeApproveLeafData(
-        SphinxLeaf memory leaf
-    )
+    function decodeApproveLeafData(SphinxLeaf memory leaf)
         internal
         pure
         returns (
@@ -186,7 +190,11 @@ contract SphinxUtils is SphinxConstants {
         return abi.decode(leaf.data, (address, address, uint256, uint256, address, string, bool));
     }
 
-    function findNetworkInfoByChainId(uint256 _chainId) internal pure returns (NetworkInfo memory) {
+    function findNetworkInfoByChainId(uint256 _chainId)
+        internal
+        pure
+        returns (NetworkInfo memory)
+    {
         NetworkInfo[] memory all = getNetworkInfoArray();
         for (uint256 i = 0; i < all.length; i++) {
             if (all[i].chainId == _chainId) {
@@ -196,8 +204,7 @@ contract SphinxUtils is SphinxConstants {
         revert(
             string(
                 abi.encodePacked(
-                    "Sphinx: No network found with the given chain ID: ",
-                    vm.toString(_chainId)
+                    "Sphinx: No network found with the given chain ID: ", vm.toString(_chainId)
                 )
             )
         );
@@ -215,7 +222,14 @@ contract SphinxUtils is SphinxConstants {
         return result;
     }
 
-    function computeCreate3Address(address _deployer, bytes32 _salt) public pure returns (address) {
+    function computeCreate3Address(
+        address _deployer,
+        bytes32 _salt
+    )
+        public
+        pure
+        returns (address)
+    {
         // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the
         // `CREATE3.sol`
         // library for details.
@@ -253,13 +267,10 @@ contract SphinxUtils is SphinxConstants {
 
     function isConfigObjectEmpty(SphinxConfig memory _config) internal pure returns (bool) {
         if (
-            _config.owners.length == 0 &&
-            _config.threshold == 0 &&
-            bytes(_config.projectName).length == 0 &&
-            _config.mainnets.length == 0 &&
-            _config.testnets.length == 0 &&
-            _config.saltNonce == 0 &&
-            bytes(_config.orgId).length == 0
+            _config.owners.length == 0 && _config.threshold == 0
+                && bytes(_config.projectName).length == 0 && _config.mainnets.length == 0
+                && _config.testnets.length == 0 && _config.saltNonce == 0
+                && bytes(_config.orgId).length == 0
         ) {
             return true;
         } else {
@@ -294,9 +305,8 @@ contract SphinxUtils is SphinxConstants {
             // completeness, but it's unlikely the user would ever actually use that
             // value so we don't mention it in the error message.
             if (_config.owners[i] == address(0) || _config.owners[i] == address(0x1)) {
-                string memory ownerString = _config.owners[i] == address(0)
-                    ? "address(0)"
-                    : "address(1)";
+                string memory ownerString =
+                    _config.owners[i] == address(0) ? "address(0)" : "address(1)";
                 revert(
                     string(
                         abi.encodePacked(
@@ -389,8 +399,7 @@ contract SphinxUtils is SphinxConstants {
         if (address(_safe).code.length > 0) {
             // Check that the deployer is the sole owner of the Gnosis Safe.
             require(
-                _safe.isOwner(deployer),
-                "Sphinx: The deployer must be an owner of the Gnosis Safe."
+                _safe.isOwner(deployer), "Sphinx: The deployer must be an owner of the Gnosis Safe."
             );
             require(
                 _safe.getOwners().length == 1,
@@ -402,24 +411,24 @@ contract SphinxUtils is SphinxConstants {
     function getInitialChainState(
         address _safe,
         ISphinxModule _sphinxModule
-    ) private view returns (InitialChainState memory) {
+    )
+        private
+        view
+        returns (InitialChainState memory)
+    {
         if (address(_safe).code.length == 0) {
-            return
-                InitialChainState({
-                    isSafeDeployed: false,
-                    isModuleDeployed: false,
-                    isExecuting: false
-                });
+            return InitialChainState({
+                isSafeDeployed: false,
+                isModuleDeployed: false,
+                isExecuting: false
+            });
         } else {
             bool isModuleDeployed = address(_sphinxModule).code.length > 0;
-            return
-                InitialChainState({
-                    isSafeDeployed: true,
-                    isModuleDeployed: isModuleDeployed,
-                    isExecuting: isModuleDeployed
-                        ? _sphinxModule.activeMerkleRoot() != bytes32(0)
-                        : false
-                });
+            return InitialChainState({
+                isSafeDeployed: true,
+                isModuleDeployed: isModuleDeployed,
+                isExecuting: isModuleDeployed ? _sphinxModule.activeMerkleRoot() != bytes32(0) : false
+            });
         }
     }
 
@@ -433,26 +442,19 @@ contract SphinxUtils is SphinxConstants {
 
     function getGnosisSafeProxyInitCode() internal pure returns (bytes memory) {
         return
-            hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea2646970667358221220d1429297349653a4918076d650332de1a1068c5f3e07c5c82360c277770b955264736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
+        hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea2646970667358221220d1429297349653a4918076d650332de1a1068c5f3e07c5c82360c277770b955264736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
     }
 
     function getGnosisSafeProxyAddress(address _script) public returns (address) {
         bytes memory safeInitializerData = getGnosisSafeInitializerData(_script);
         SphinxConfig memory _config = fetchAndValidateConfig(_script);
 
-        bytes32 salt = keccak256(
-            abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
-        );
+        bytes32 salt =
+            keccak256(abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce));
         bytes memory safeProxyInitCode = getGnosisSafeProxyInitCode();
-        bytes memory deploymentData = abi.encodePacked(
-            safeProxyInitCode,
-            uint256(uint160(safeSingletonAddress))
-        );
-        address addr = vm.computeCreate2Address(
-            salt,
-            keccak256(deploymentData),
-            safeFactoryAddress
-        );
+        bytes memory deploymentData =
+            abi.encodePacked(safeProxyInitCode, uint256(uint160(safeSingletonAddress)));
+        address addr = vm.computeCreate2Address(salt, keccak256(deploymentData), safeFactoryAddress);
         return addr;
     }
 
@@ -465,7 +467,11 @@ contract SphinxUtils is SphinxConstants {
         address implementation,
         bytes32 salt,
         address deployer
-    ) internal pure returns (address predicted) {
+    )
+        internal
+        pure
+        returns (address predicted)
+    {
         assembly {
             let ptr := mload(0x40)
             mstore(add(ptr, 0x38), deployer)
@@ -497,9 +503,7 @@ contract SphinxUtils is SphinxConstants {
             )
         );
         address addr = predictDeterministicAddress(
-            sphinxModuleImplAddress,
-            salt,
-            sphinxModuleProxyFactoryAddress
+            sphinxModuleImplAddress, salt, sphinxModuleProxyFactoryAddress
         );
         return addr;
     }
@@ -520,18 +524,18 @@ contract SphinxUtils is SphinxConstants {
      *         documentation if you change the name of this function or change its file
      *         location.
      */
-    function getGnosisSafeInitializerData(
-        address _script
-    ) internal returns (bytes memory safeInitializerData) {
+    function getGnosisSafeInitializerData(address _script)
+        internal
+        returns (bytes memory safeInitializerData)
+    {
         SphinxConfig memory _config = fetchAndValidateConfig(_script);
 
         // Sort the owner addresses. This provides a consistent ordering, which makes it easier
         // to calculate the `CREATE2` address of the Gnosis Safe off-chain.
         address[] memory sortedOwners = sortAddresses(_config.owners);
 
-        ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
-            sphinxModuleProxyFactoryAddress
-        );
+        ISphinxModuleProxyFactory moduleProxyFactory =
+            ISphinxModuleProxyFactory(sphinxModuleProxyFactoryAddress);
 
         // Encode the data that will deploy the Sphinx Module.
         bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
@@ -596,7 +600,7 @@ contract SphinxUtils is SphinxConstants {
         );
     }
 
-    function getMerkleRootNonce(ISphinxModule _module) public view returns (uint) {
+    function getMerkleRootNonce(ISphinxModule _module) public view returns (uint256) {
         if (address(_module).code.length == 0) {
             return 0;
         } else {
@@ -606,20 +610,17 @@ contract SphinxUtils is SphinxConstants {
 
     function create2Deploy(bytes memory _initCodeWithArgs) public returns (address) {
         address addr = vm.computeCreate2Address(
-            bytes32(0),
-            keccak256(_initCodeWithArgs),
-            DETERMINISTIC_DEPLOYMENT_PROXY
+            bytes32(0), keccak256(_initCodeWithArgs), DETERMINISTIC_DEPLOYMENT_PROXY
         );
 
         if (addr.code.length == 0) {
             bytes memory code = abi.encodePacked(bytes32(0), _initCodeWithArgs);
-            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
+            (bool success,) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
             require(
                 success,
                 string(
                     abi.encodePacked(
-                        "failed to deploy contract. expected address: ",
-                        vm.toString(addr)
+                        "failed to deploy contract. expected address: ", vm.toString(addr)
                     )
                 )
             );
@@ -654,7 +655,11 @@ contract SphinxUtils is SphinxConstants {
         address _safeAddress,
         uint64 _callDepth,
         uint256 _chainId
-    ) private view returns (uint256) {
+    )
+        private
+        view
+        returns (uint256)
+    {
         uint256 count = 0;
         for (uint256 i = 0; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
@@ -691,14 +696,17 @@ contract SphinxUtils is SphinxConstants {
         address _safeAddress,
         uint64 _callDepth,
         uint256 _chainId
-    ) private view returns (bool) {
-        return
-            _access.accessor == _safeAddress &&
-            _access.depth == _callDepth &&
-            _access.chainInfo.chainId == _chainId &&
-            _access.account != address(this) &&
-            (_access.kind == VmSafe.AccountAccessKind.Call ||
-                _access.kind == VmSafe.AccountAccessKind.Create);
+    )
+        private
+        view
+        returns (bool)
+    {
+        return _access.accessor == _safeAddress && _access.depth == _callDepth
+            && _access.chainInfo.chainId == _chainId && _access.account != address(this)
+            && (
+                _access.kind == VmSafe.AccountAccessKind.Call
+                    || _access.kind == VmSafe.AccountAccessKind.Create
+            );
     }
 
     function getNumNestedAccountAccesses(
@@ -707,15 +715,19 @@ contract SphinxUtils is SphinxConstants {
         address _safeAddress,
         uint64 _callDepth,
         uint256 _chainId
-    ) internal view returns (uint256) {
+    )
+        internal
+        view
+        returns (uint256)
+    {
         uint256 count = 0;
         for (uint256 i = _rootIdx + 1; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
             // If the current account access is a new root account access or exists on a different
             // chain, we'll return from this function.
             if (
-                isRootAccountAccess(access, _safeAddress, _callDepth, _chainId) ||
-                _chainId != access.chainInfo.chainId
+                isRootAccountAccess(access, _safeAddress, _callDepth, _chainId)
+                    || _chainId != access.chainInfo.chainId
             ) {
                 return count;
             } else {
@@ -730,9 +742,10 @@ contract SphinxUtils is SphinxConstants {
      *         same structure as the `FoundryDeploymentInfo` struct except all `uint` and `string`
      *         fields are ABI encoded (see inline docs for details).
      */
-    function serializeFoundryDeploymentInfo(
-        FoundryDeploymentInfo memory _deployment
-    ) public returns (string memory) {
+    function serializeFoundryDeploymentInfo(FoundryDeploymentInfo memory _deployment)
+        public
+        returns (string memory)
+    {
         // Set the object key to an empty JSON, which ensures that there aren't any existing values
         // stored in memory for the object key.
         vm.serializeJson(deploymentInfoKey, "{}");
@@ -745,9 +758,7 @@ contract SphinxUtils is SphinxConstants {
         vm.serializeBool(deploymentInfoKey, "requireSuccess", _deployment.requireSuccess);
         vm.serializeBool(deploymentInfoKey, "arbitraryChain", _deployment.arbitraryChain);
         vm.serializeBytes(
-            deploymentInfoKey,
-            "encodedAccountAccesses",
-            _deployment.encodedAccountAccesses
+            deploymentInfoKey, "encodedAccountAccesses", _deployment.encodedAccountAccesses
         );
 
         // Next, we'll serialize `uint` values as ABI encoded bytes. We don't serialize them as
@@ -757,16 +768,10 @@ contract SphinxUtils is SphinxConstants {
         // by a Foundry bug: https://github.com/foundry-rs/foundry/issues/6533
         vm.serializeBytes(deploymentInfoKey, "nonce", abi.encode(_deployment.nonce));
         vm.serializeBytes(deploymentInfoKey, "chainId", abi.encode(_deployment.chainId));
-        vm.serializeBytes(
-            deploymentInfoKey,
-            "blockGasLimit",
-            abi.encode(_deployment.blockGasLimit)
-        );
+        vm.serializeBytes(deploymentInfoKey, "blockGasLimit", abi.encode(_deployment.blockGasLimit));
         vm.serializeBytes(deploymentInfoKey, "blockNumber", abi.encode(_deployment.blockNumber));
         vm.serializeBytes(
-            deploymentInfoKey,
-            "executionMode",
-            abi.encode(uint256(_deployment.executionMode))
+            deploymentInfoKey, "executionMode", abi.encode(uint256(_deployment.executionMode))
         );
         vm.serializeBytes(
             deploymentInfoKey,
@@ -774,9 +779,7 @@ contract SphinxUtils is SphinxConstants {
             abi.encode(_deployment.fundsRequestedForSafe)
         );
         vm.serializeBytes(
-            deploymentInfoKey,
-            "safeStartingBalance",
-            abi.encode(_deployment.safeStartingBalance)
+            deploymentInfoKey, "safeStartingBalance", abi.encode(_deployment.safeStartingBalance)
         );
         // Serialize the gas estimates as an ABI encoded `uint256` array.
         vm.serializeBytes(deploymentInfoKey, "gasEstimates", abi.encode(_deployment.gasEstimates));
@@ -785,21 +788,15 @@ contract SphinxUtils is SphinxConstants {
         // `sphinxLibraryVersion` consists only of numbers. If Foundry serializes it as a number,
         // it'll be prone to the same precision loss due to JavaScript's low integer size limit.
         vm.serializeBytes(
-            deploymentInfoKey,
-            "sphinxLibraryVersion",
-            abi.encode(_deployment.sphinxLibraryVersion)
+            deploymentInfoKey, "sphinxLibraryVersion", abi.encode(_deployment.sphinxLibraryVersion)
         );
 
         // Serialize structs
         vm.serializeString(
-            deploymentInfoKey,
-            "newConfig",
-            serializeSphinxConfig(_deployment.newConfig)
+            deploymentInfoKey, "newConfig", serializeSphinxConfig(_deployment.newConfig)
         );
         string memory finalJson = vm.serializeString(
-            deploymentInfoKey,
-            "initialState",
-            serializeInitialChainState(_deployment.initialState)
+            deploymentInfoKey, "initialState", serializeInitialChainState(_deployment.initialState)
         );
 
         return finalJson;
@@ -818,29 +815,24 @@ contract SphinxUtils is SphinxConstants {
         vm.serializeBytes(sphinxConfigKey, "orgId", abi.encode(config.orgId));
         // Serialize the `uint` values as ABI encoded bytes.
         vm.serializeBytes(sphinxConfigKey, "saltNonce", abi.encode(config.saltNonce));
-        string memory finalJson = vm.serializeBytes(
-            sphinxConfigKey,
-            "threshold",
-            abi.encode(config.threshold)
-        );
+        string memory finalJson =
+            vm.serializeBytes(sphinxConfigKey, "threshold", abi.encode(config.threshold));
 
         return finalJson;
     }
 
-    function serializeInitialChainState(
-        InitialChainState memory _initialState
-    ) internal returns (string memory) {
+    function serializeInitialChainState(InitialChainState memory _initialState)
+        internal
+        returns (string memory)
+    {
         // Set the object key to an empty JSON, which ensures that there aren't any existing values
         // stored in memory for the object key.
         vm.serializeJson(initialStateKey, "{}");
 
         vm.serializeBool(initialStateKey, "isSafeDeployed", _initialState.isSafeDeployed);
         vm.serializeBool(initialStateKey, "isModuleDeployed", _initialState.isModuleDeployed);
-        string memory finalJson = vm.serializeBool(
-            initialStateKey,
-            "isExecuting",
-            _initialState.isExecuting
-        );
+        string memory finalJson =
+            vm.serializeBool(initialStateKey, "isExecuting", _initialState.isExecuting);
 
         return finalJson;
     }
@@ -848,9 +840,13 @@ contract SphinxUtils is SphinxConstants {
     function fetchNumCreateAccesses(
         Vm.AccountAccess[] memory _accesses,
         uint256 _chainId
-    ) public pure returns (uint) {
-        uint numCreateAccesses = 0;
-        for (uint i = 0; i < _accesses.length; i++) {
+    )
+        public
+        pure
+        returns (uint256)
+    {
+        uint256 numCreateAccesses = 0;
+        for (uint256 i = 0; i < _accesses.length; i++) {
             if (isCreateAccountAccess(_accesses[i], _chainId)) {
                 numCreateAccesses += 1;
             }
@@ -861,10 +857,13 @@ contract SphinxUtils is SphinxConstants {
     function isCreateAccountAccess(
         Vm.AccountAccess memory _access,
         uint256 _chainId
-    ) private pure returns (bool) {
+    )
+        private
+        pure
+        returns (bool)
+    {
         return
-            _access.kind == VmSafe.AccountAccessKind.Create &&
-            _access.chainInfo.chainId == _chainId;
+            _access.kind == VmSafe.AccountAccessKind.Create && _access.chainInfo.chainId == _chainId;
     }
 
     function parseAccountAccesses(
@@ -872,7 +871,11 @@ contract SphinxUtils is SphinxConstants {
         address _safeAddress,
         uint64 _callDepth,
         uint256 _chainId
-    ) internal view returns (ParsedAccountAccess[] memory) {
+    )
+        internal
+        view
+        returns (ParsedAccountAccess[] memory)
+    {
         uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress, _callDepth, _chainId);
 
         ParsedAccountAccess[] memory parsed = new ParsedAccountAccess[](numRoots);
@@ -882,11 +885,7 @@ contract SphinxUtils is SphinxConstants {
 
             if (isRootAccountAccess(access, _safeAddress, _callDepth, _chainId)) {
                 uint256 numNested = getNumNestedAccountAccesses(
-                    _accesses,
-                    rootIdx,
-                    _safeAddress,
-                    _callDepth,
-                    _chainId
+                    _accesses, rootIdx, _safeAddress, _callDepth, _chainId
                 );
                 Vm.AccountAccess[] memory nested = new Vm.AccountAccess[](numNested);
                 for (uint256 nestedIdx = 0; nestedIdx < numNested; nestedIdx++) {
@@ -906,44 +905,43 @@ contract SphinxUtils is SphinxConstants {
     }
 
     /**
-     * @notice Converts an `AccountAccess` struct to a struct that can be executed from a Gnosis Safe
+     * @notice Converts an `AccountAccess` struct to a struct that can be executed from a Gnosis
+     * Safe
      *         via `GnosisSafe.execTransactionFromModule`.
      */
-    function makeGnosisSafeTransaction(
-        Vm.AccountAccess memory _access
-    ) internal pure returns (GnosisSafeTransaction memory) {
+    function makeGnosisSafeTransaction(Vm.AccountAccess memory _access)
+        internal
+        pure
+        returns (GnosisSafeTransaction memory)
+    {
         if (_access.kind == VmSafe.AccountAccessKind.Create) {
             // `Create` transactions are executed by delegatecalling the `CreateCall`
             // contract from the Gnosis Safe.
-            return
-                GnosisSafeTransaction({
-                    operation: IEnum.GnosisSafeOperation.DelegateCall,
-                    // The `value` field is always unused for `DelegateCall` operations.
-                    // Instead, value is transferred via `performCreate` below.
-                    value: 0,
-                    to: createCallAddress,
-                    txData: abi.encodePacked(
-                        ICreateCall.performCreate.selector,
-                        abi.encode(_access.value, _access.data)
-                    )
-                });
+            return GnosisSafeTransaction({
+                operation: IEnum.GnosisSafeOperation.DelegateCall,
+                // The `value` field is always unused for `DelegateCall` operations.
+                // Instead, value is transferred via `performCreate` below.
+                value: 0,
+                to: createCallAddress,
+                txData: abi.encodePacked(
+                    ICreateCall.performCreate.selector, abi.encode(_access.value, _access.data)
+                )
+            });
         } else if (_access.kind == VmSafe.AccountAccessKind.Call) {
-            return
-                GnosisSafeTransaction({
-                    operation: IEnum.GnosisSafeOperation.Call,
-                    value: _access.value,
-                    to: _access.account,
-                    txData: _access.data
-                });
+            return GnosisSafeTransaction({
+                operation: IEnum.GnosisSafeOperation.Call,
+                value: _access.value,
+                to: _access.account,
+                txData: _access.data
+            });
         } else {
             revert("AccountAccess kind is incorrect. Should never happen.");
         }
     }
 
     function getModuleInitializerMultiSendData() private pure returns (bytes memory) {
-        ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
-            sphinxModuleProxyFactoryAddress
-        );
+        ISphinxModuleProxyFactory moduleProxyFactory =
+            ISphinxModuleProxyFactory(sphinxModuleProxyFactoryAddress);
 
         // Encode the data that will deploy the Sphinx Module.
         bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
@@ -998,7 +996,9 @@ contract SphinxUtils is SphinxConstants {
         address[] memory _owners,
         uint256 _threshold,
         address _safeAddress
-    ) public {
+    )
+        public
+    {
         // Get the encoded data that'll be sent to the `MultiSend` contract to deploy and enable the
         // Sphinx Module in the Gnosis Safe.
         bytes memory multiSendData = getModuleInitializerMultiSendData();
@@ -1010,9 +1010,7 @@ contract SphinxUtils is SphinxConstants {
         // that deployed linked library addresses match the production environment. If we deploy the
         // Gnosis Safe without using cheatcodes, Foundry would throw an error here.
         deployContractTo(
-            getGnosisSafeProxyInitCode(),
-            abi.encode(safeSingletonAddress),
-            _safeAddress
+            getGnosisSafeProxyInitCode(), abi.encode(safeSingletonAddress), _safeAddress
         );
 
         // Initialize the Gnosis Safe proxy.
@@ -1040,7 +1038,9 @@ contract SphinxUtils is SphinxConstants {
         bytes memory _initCode,
         bytes memory _abiEncodedConstructorArgs,
         address _where
-    ) public {
+    )
+        public
+    {
         require(_where.code.length == 0, "SphinxUtils: contract already exists");
         vm.etch(_where, abi.encodePacked(_initCode, _abiEncodedConstructorArgs));
         (bool success, bytes memory runtimeBytecode) = _where.call("");
@@ -1063,7 +1063,10 @@ contract SphinxUtils is SphinxConstants {
         ExecutionMode _executionMode,
         address _executor,
         address _scriptAddress
-    ) external returns (FoundryDeploymentInfo memory) {
+    )
+        external
+        returns (FoundryDeploymentInfo memory)
+    {
         address safe = getGnosisSafeProxyAddress(_scriptAddress);
         address module = getSphinxModuleAddress(_scriptAddress);
 
@@ -1090,9 +1093,12 @@ contract SphinxUtils is SphinxConstants {
         deploymentInfo.arbitraryChain = false;
         deploymentInfo.requireSuccess = true;
 
-        // We fill the block number in later in Typescript. We have to do this using a call to the rpc provider
-        // instead of using `block.number` within forge b/c some networks have odd changes to what `block.number`
-        // means. For example, on Arbitrum` `block.number` returns the block number on ETH instead of Arbitrum.
+        // We fill the block number in later in Typescript. We have to do this using a call to the
+        // rpc provider
+        // instead of using `block.number` within forge b/c some networks have odd changes to what
+        // `block.number`
+        // means. For example, on Arbitrum` `block.number` returns the block number on ETH instead
+        // of Arbitrum.
         // This could cause the simulation to use an invalid block number and fail.
         deploymentInfo.blockNumber = 0;
 
@@ -1119,7 +1125,10 @@ contract SphinxUtils is SphinxConstants {
         ParsedAccountAccess[] memory _accountAccesses,
         address _scriptAddress,
         FoundryDeploymentInfo memory _deploymentInfo
-    ) public returns (uint256[] memory) {
+    )
+        public
+        returns (uint256[] memory)
+    {
         address safe = getGnosisSafeProxyAddress(_scriptAddress);
         address module = getSphinxModuleAddress(_scriptAddress);
 
@@ -1130,7 +1139,8 @@ contract SphinxUtils is SphinxConstants {
         vm.startPrank(module);
 
         // Update the balance of the Safe to be equal to the starting balance + the amount of funds
-        // requested. This ensures the Safe is properly funded when we execute the transactions below.
+        // requested. This ensures the Safe is properly funded when we execute the transactions
+        // below.
         vm.deal(
             _deploymentInfo.safeAddress,
             _deploymentInfo.safeStartingBalance + _deploymentInfo.fundsRequestedForSafe
@@ -1141,10 +1151,7 @@ contract SphinxUtils is SphinxConstants {
             GnosisSafeTransaction memory txn = makeGnosisSafeTransaction(parsed.root);
             uint256 startGas = gasleft();
             bool success = IGnosisSafe(safe).execTransactionFromModule(
-                txn.to,
-                txn.value,
-                txn.txData,
-                txn.operation
+                txn.to, txn.value, txn.txData, txn.operation
             );
             uint256 finalGas = gasleft();
 
@@ -1182,27 +1189,39 @@ contract SphinxUtils is SphinxConstants {
     }
 
     /**
-     * Handles adding an execute action that confirms the Safe has received the requested funding from
-     * our backend. We only include this check if the user requests funds from our backend. This check
-     * just protects the user from an error occurring in our backend which causes the funds to fail to
-     * delivered. This check causes the deployment to immediately fail instead of potentially failing
+     * Handles adding an execute action that confirms the Safe has received the requested funding
+     * from
+     * our backend. We only include this check if the user requests funds from our backend. This
+     * check
+     * just protects the user from an error occurring in our backend which causes the funds to fail
+     * to
+     * delivered. This check causes the deployment to immediately fail instead of potentially
+     * failing
      * part of the way through.
      *
      * It's worth noting the following edge case which this check does not protect against:
      * Say there are already funds in the Safe, the user then proposes a script that requires those
-     * funds, the user executes a transaction via the Safe using a third party interface that reduces
-     * the balance of the Safe. We then attempt to execute the deployment and it fails because the Safe
+     * funds, the user executes a transaction via the Safe using a third party interface that
+     * reduces
+     * the balance of the Safe. We then attempt to execute the deployment and it fails because the
+     * Safe
      * does not have enough funds.
      *
-     * This is a specific case of the more general problem that if a deployment depends on some specific
-     * on chain state, the deployment may end up failing if that state changes in between the deployment
+     * This is a specific case of the more general problem that if a deployment depends on some
+     * specific
+     * on chain state, the deployment may end up failing if that state changes in between the
+     * deployment
      * being approved and it getting executed.
      */
     function addBalanceCheckAction(
         FoundryDeploymentInfo memory _deploymentInfo,
         ParsedAccountAccess[] memory parsedAccesses,
         uint64 _callDepth
-    ) private pure returns (ParsedAccountAccess[] memory) {
+    )
+        private
+        pure
+        returns (ParsedAccountAccess[] memory)
+    {
         // We don't need a check balance action if the user did not request funds
         if (_deploymentInfo.fundsRequestedForSafe == 0) {
             return parsedAccesses;
@@ -1218,21 +1237,22 @@ contract SphinxUtils is SphinxConstants {
                 // The old balance is the starting balance + the amount of funds requested because
                 // this action is executed after we've already transferred the requested funds to
                 // the Safe.
-                oldBalance: _deploymentInfo.safeStartingBalance +
-                    _deploymentInfo.fundsRequestedForSafe,
-                newBalance: _deploymentInfo.safeStartingBalance +
-                    _deploymentInfo.fundsRequestedForSafe,
+                oldBalance: _deploymentInfo.safeStartingBalance + _deploymentInfo.fundsRequestedForSafe,
+                newBalance: _deploymentInfo.safeStartingBalance + _deploymentInfo.fundsRequestedForSafe,
                 deployedCode: "",
                 // We transfer the current balance of the Safe + the amount of funds requested
                 // We include the starting balance in addition to the amount requested because the
                 // safe may already have a balance that exceeds the amount requested.
                 // The following case could occur if we just checked for the amount requested:
                 // 1. The user requestes 0.1 eth using a Safe that has 0.15 eth
-                // 2. Our backend executes the deployment and fails to transfer the requested 0.1 eth
+                // 2. Our backend executes the deployment and fails to transfer the requested 0.1
+                // eth
                 // due to an error.
-                // 3. The rest of the deployment is executed and this check passed because the balance
+                // 3. The rest of the deployment is executed and this check passed because the
+                // balance
                 // of the Safe is greater than the amount of funds requested.
-                // 4. Transactions in the rest of the deployment may fail because the Safe doesn't have
+                // 4. Transactions in the rest of the deployment may fail because the Safe doesn't
+                // have
                 // the amount of funds expected.
                 value: _deploymentInfo.safeStartingBalance + _deploymentInfo.fundsRequestedForSafe,
                 data: "",
@@ -1243,11 +1263,10 @@ contract SphinxUtils is SphinxConstants {
             new VmSafe.AccountAccess[](0)
         );
 
-        ParsedAccountAccess[] memory parsedAccessesWithCheck = new ParsedAccountAccess[](
-            parsedAccesses.length + 1
-        );
+        ParsedAccountAccess[] memory parsedAccessesWithCheck =
+            new ParsedAccountAccess[](parsedAccesses.length + 1);
         parsedAccessesWithCheck[0] = checkFundsAccess;
-        for (uint i = 1; i < parsedAccessesWithCheck.length; i++) {
+        for (uint256 i = 1; i < parsedAccessesWithCheck.length; i++) {
             parsedAccessesWithCheck[i] = parsedAccesses[i - 1];
         }
 
@@ -1266,7 +1285,10 @@ contract SphinxUtils is SphinxConstants {
         Vm.AccountAccess[] memory _accesses,
         uint64 _callDepth,
         address _scriptAddress
-    ) external returns (FoundryDeploymentInfo memory) {
+    )
+        external
+        returns (FoundryDeploymentInfo memory)
+    {
         ParsedAccountAccess[] memory parsedAccesses = parseAccountAccesses(
             _accesses,
             _deploymentInfo.safeAddress,
@@ -1287,11 +1309,8 @@ contract SphinxUtils is SphinxConstants {
             _deploymentInfo.encodedAccountAccesses[i] = abi.encode(parsedAccesses[i]);
         }
 
-        _deploymentInfo.gasEstimates = estimateMerkleLeafGas(
-            parsedAccesses,
-            _scriptAddress,
-            _deploymentInfo
-        );
+        _deploymentInfo.gasEstimates =
+            estimateMerkleLeafGas(parsedAccesses, _scriptAddress, _deploymentInfo);
 
         return _deploymentInfo;
     }

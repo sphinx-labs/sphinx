@@ -317,6 +317,8 @@ export const deploy = async (
     [] // We don't currently support linked libraries.
   )
 
+  console.log('safeAddress', networkConfig.safeAddress)
+
   if (networkConfig.actionInputs.length === 0) {
     spinner.info(`Nothing to deploy. Exiting early.`)
     return {}

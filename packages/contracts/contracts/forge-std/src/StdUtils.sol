@@ -13,8 +13,7 @@ abstract contract StdUtils {
                                      CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    IMulticall3 private constant multicall =
-        IMulticall3(0xcA11bde05977b3631167028862bE2a173976CA11);
+    IMulticall3 private constant multicall = IMulticall3(0xcA11bde05977b3631167028862bE2a173976CA11);
     VmSafe private constant vm = VmSafe(address(uint160(uint256(keccak256("hevm cheat code")))));
     address private constant CONSOLE2_ADDRESS = 0x000000000000000000636F6e736F6c652e6c6f67;
     uint256 private constant INT256_MIN_ABS =
@@ -24,7 +23,8 @@ abstract contract StdUtils {
     uint256 private constant UINT256_MAX =
         115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
-    // Used by default when deploying with create2, https://github.com/Arachnid/deterministic-deployment-proxy.
+    // Used by default when deploying with create2,
+    // https://github.com/Arachnid/deterministic-deployment-proxy.
     address private constant CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -35,15 +35,22 @@ abstract contract StdUtils {
         uint256 x,
         uint256 min,
         uint256 max
-    ) internal pure virtual returns (uint256 result) {
+    )
+        internal
+        pure
+        virtual
+        returns (uint256 result)
+    {
         require(min <= max, "StdUtils bound(uint256,uint256,uint256): Max is less than min.");
         // If x is between min and max, return x directly. This is to ensure that dictionary values
-        // do not get shifted if the min is nonzero. More info: https://github.com/foundry-rs/forge-std/issues/188
+        // do not get shifted if the min is nonzero. More info:
+        // https://github.com/foundry-rs/forge-std/issues/188
         if (x >= min && x <= max) return x;
 
         uint256 size = max - min + 1;
 
-        // If the value is 0, 1, 2, 3, wrap that to min, min+1, min+2, min+3. Similarly for the UINT256_MAX side.
+        // If the value is 0, 1, 2, 3, wrap that to min, min+1, min+2, min+3. Similarly for the
+        // UINT256_MAX side.
         // This helps ensure coverage of the min/max values.
         if (x <= 3 && size > x) return min + x;
         if (x >= UINT256_MAX - 3 && size > UINT256_MAX - x) return max - (UINT256_MAX - x);
@@ -66,7 +73,12 @@ abstract contract StdUtils {
         uint256 x,
         uint256 min,
         uint256 max
-    ) internal pure virtual returns (uint256 result) {
+    )
+        internal
+        pure
+        virtual
+        returns (uint256 result)
+    {
         result = _bound(x, min, max);
         console2_log_StdUtils("Bound Result", result);
     }
@@ -75,7 +87,12 @@ abstract contract StdUtils {
         int256 x,
         int256 min,
         int256 max
-    ) internal pure virtual returns (int256 result) {
+    )
+        internal
+        pure
+        virtual
+        returns (int256 result)
+    {
         require(min <= max, "StdUtils bound(int256,int256,int256): Max is less than min.");
 
         // Shifting all int256 values to uint256 to use _bound function. The range of two types are:
@@ -83,25 +100,31 @@ abstract contract StdUtils {
         // uint256:     0     ~ (2**256 - 1)
         // So, add 2**255, INT256_MIN_ABS to the integer values.
         //
-        // If the given integer value is -2**255, we cannot use `-uint256(-x)` because of the overflow.
+        // If the given integer value is -2**255, we cannot use `-uint256(-x)` because of the
+        // overflow.
         // So, use `~uint256(x) + 1` instead.
         uint256 _x = x < 0 ? (INT256_MIN_ABS - ~uint256(x) - 1) : (uint256(x) + INT256_MIN_ABS);
-        uint256 _min = min < 0
-            ? (INT256_MIN_ABS - ~uint256(min) - 1)
-            : (uint256(min) + INT256_MIN_ABS);
-        uint256 _max = max < 0
-            ? (INT256_MIN_ABS - ~uint256(max) - 1)
-            : (uint256(max) + INT256_MIN_ABS);
+        uint256 _min =
+            min < 0 ? (INT256_MIN_ABS - ~uint256(min) - 1) : (uint256(min) + INT256_MIN_ABS);
+        uint256 _max =
+            max < 0 ? (INT256_MIN_ABS - ~uint256(max) - 1) : (uint256(max) + INT256_MIN_ABS);
 
         uint256 y = _bound(_x, _min, _max);
 
         // To move it back to int256 value, subtract INT256_MIN_ABS at here.
-        result = y < INT256_MIN_ABS
-            ? int256(~(INT256_MIN_ABS - y) + 1)
-            : int256(y - INT256_MIN_ABS);
+        result = y < INT256_MIN_ABS ? int256(~(INT256_MIN_ABS - y) + 1) : int256(y - INT256_MIN_ABS);
     }
 
-    function bound(int256 x, int256 min, int256 max) internal pure virtual returns (int256 result) {
+    function bound(
+        int256 x,
+        int256 min,
+        int256 max
+    )
+        internal
+        pure
+        virtual
+        returns (int256 result)
+    {
         result = _bound(x, min, max);
         console2_log_StdUtils("Bound result", vm.toString(result));
     }
@@ -115,12 +138,19 @@ abstract contract StdUtils {
         return abi.decode(abi.encodePacked(new bytes(32 - b.length), b), (uint256));
     }
 
-    /// @dev Compute the address a contract will be deployed at for a given deployer address and nonce
-    /// @notice adapted from Solmate implementation (https://github.com/Rari-Capital/solmate/blob/main/src/utils/LibRLP.sol)
+    /// @dev Compute the address a contract will be deployed at for a given deployer address and
+    /// nonce
+    /// @notice adapted from Solmate implementation
+    /// (https://github.com/Rari-Capital/solmate/blob/main/src/utils/LibRLP.sol)
     function computeCreateAddress(
         address deployer,
         uint256 nonce
-    ) internal pure virtual returns (address) {
+    )
+        internal
+        pure
+        virtual
+        returns (address)
+    {
         console2_log_StdUtils(
             "computeCreateAddress is deprecated. Please use vm.computeCreateAddress instead."
         );
@@ -131,18 +161,28 @@ abstract contract StdUtils {
         bytes32 salt,
         bytes32 initcodeHash,
         address deployer
-    ) internal pure virtual returns (address) {
+    )
+        internal
+        pure
+        virtual
+        returns (address)
+    {
         console2_log_StdUtils(
             "computeCreate2Address is deprecated. Please use vm.computeCreate2Address instead."
         );
         return vm.computeCreate2Address(salt, initcodeHash, deployer);
     }
 
-    /// @dev returns the address of a contract created with CREATE2 using the default CREATE2 deployer
+    /// @dev returns the address of a contract created with CREATE2 using the default CREATE2
+    /// deployer
     function computeCreate2Address(
         bytes32 salt,
         bytes32 initCodeHash
-    ) internal pure returns (address) {
+    )
+        internal
+        pure
+        returns (address)
+    {
         console2_log_StdUtils(
             "computeCreate2Address is deprecated. Please use vm.computeCreate2Address instead."
         );
@@ -154,7 +194,10 @@ abstract contract StdUtils {
         string memory name,
         string memory symbol,
         uint8 decimals
-    ) internal returns (MockERC20 mock) {
+    )
+        internal
+        returns (MockERC20 mock)
+    {
         mock = new MockERC20();
         mock.initialize(name, symbol, decimals);
     }
@@ -163,12 +206,16 @@ abstract contract StdUtils {
     function deployMockERC721(
         string memory name,
         string memory symbol
-    ) internal returns (MockERC721 mock) {
+    )
+        internal
+        returns (MockERC721 mock)
+    {
         mock = new MockERC721();
         mock.initialize(name, symbol);
     }
 
-    /// @dev returns the hash of the init code (creation code + no args) used in CREATE2 with no constructor arguments
+    /// @dev returns the hash of the init code (creation code + no args) used in CREATE2 with no
+    /// constructor arguments
     /// @param creationCode the creation code of a contract C, as returned by type(C).creationCode
     function hashInitCode(bytes memory creationCode) internal pure returns (bytes32) {
         return hashInitCode(creationCode, "");
@@ -180,15 +227,24 @@ abstract contract StdUtils {
     function hashInitCode(
         bytes memory creationCode,
         bytes memory args
-    ) internal pure returns (bytes32) {
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(creationCode, args));
     }
 
-    // Performs a single call with Multicall3 to query the ERC-20 token balances of the given addresses.
+    // Performs a single call with Multicall3 to query the ERC-20 token balances of the given
+    // addresses.
     function getTokenBalances(
         address token,
         address[] memory addresses
-    ) internal virtual returns (uint256[] memory balances) {
+    )
+        internal
+        virtual
+        returns (uint256[] memory balances)
+    {
         uint256 tokenCodeSize;
         assembly {
             tokenCodeSize := extcodesize(token)
@@ -227,12 +283,16 @@ abstract contract StdUtils {
         return address(uint160(uint256(bytesValue)));
     }
 
-    // This section is used to prevent the compilation of console, which shortens the compilation time when console is
-    // not used elsewhere. We also trick the compiler into letting us make the console log methods as `pure` to avoid
+    // This section is used to prevent the compilation of console, which shortens the compilation
+    // time when console is
+    // not used elsewhere. We also trick the compiler into letting us make the console log methods
+    // as `pure` to avoid
     // any breaking changes to function signatures.
-    function _castLogPayloadViewToPure(
-        function(bytes memory) internal view fnIn
-    ) internal pure returns (function(bytes memory) internal pure fnOut) {
+    function _castLogPayloadViewToPure(function(bytes memory) internal view fnIn)
+        internal
+        pure
+        returns (function(bytes memory) internal pure fnOut)
+    {
         assembly {
             fnOut := fnIn
         }

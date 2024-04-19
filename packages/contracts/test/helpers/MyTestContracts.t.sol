@@ -21,8 +21,8 @@ contract MyContract {
         (bool success, bytes memory retdata) = _to.call(_data);
         require(!success, "MyContract: reentrancy succeeded");
         require(
-            keccak256(retdata) ==
-                keccak256(
+            keccak256(retdata)
+                == keccak256(
                     abi.encodePacked(ERROR_SELECTOR, abi.encode("ReentrancyGuard: reentrant call"))
                 ),
             "MyContract: incorrect error"
@@ -34,7 +34,7 @@ contract MyContract {
         revert("MyContract: reverted");
     }
 
-    function acceptPayment() external payable {}
+    function acceptPayment() external payable { }
 }
 
 contract MyDelegateCallContract {

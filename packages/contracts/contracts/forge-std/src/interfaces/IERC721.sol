@@ -55,7 +55,9 @@ interface IERC721 is IERC165 {
         address _to,
         uint256 _tokenId,
         bytes calldata data
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Transfers the ownership of an NFT from one address to another address
     /// @dev This works identically to the other function with an extra data parameter,
@@ -125,7 +127,9 @@ interface IERC721TokenReceiver {
         address _from,
         uint256 _tokenId,
         bytes calldata _data
-    ) external returns (bytes4);
+    )
+        external
+        returns (bytes4);
 }
 
 /// @title ERC-721 Non-Fungible Token Standard, optional metadata extension

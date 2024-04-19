@@ -12,62 +12,44 @@ import { SphinxLeafWithProof, SphinxLeafType } from "../contracts/core/SphinxDat
 import { IEnum } from "../contracts/foundry/interfaces/IEnum.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
 // Gnosis Safe v1.3.0
-import {
-    GnosisSafeProxyFactory as GnosisSafeProxyFactory_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
-import {
-    GnosisSafeProxy as GnosisSafeProxy_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxy.sol";
-import {
-    SimulateTxAccessor as SimulateTxAccessor_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/accessors/SimulateTxAccessor.sol";
-import {
-    DefaultCallbackHandler as DefaultCallbackHandler_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/handler/DefaultCallbackHandler.sol";
-import {
-    CompatibilityFallbackHandler as CompatibilityFallbackHandler_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/handler/CompatibilityFallbackHandler.sol";
-import {
-    CreateCall as CreateCall_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/libraries/CreateCall.sol";
-import {
-    MultiSend as MultiSend_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSend.sol";
-import {
-    MultiSendCallOnly as MultiSendCallOnly_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSendCallOnly.sol";
-import {
-    SignMessageLib as SignMessageLib_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/libraries/SignMessageLib.sol";
-import {
-    GnosisSafeL2 as GnosisSafeL2_1_3_0
-} from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafeL2.sol";
+import { GnosisSafeProxyFactory as GnosisSafeProxyFactory_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
+import { GnosisSafeProxy as GnosisSafeProxy_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxy.sol";
+import { SimulateTxAccessor as SimulateTxAccessor_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/accessors/SimulateTxAccessor.sol";
+import { DefaultCallbackHandler as DefaultCallbackHandler_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/handler/DefaultCallbackHandler.sol";
+import { CompatibilityFallbackHandler as CompatibilityFallbackHandler_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/handler/CompatibilityFallbackHandler.sol";
+import { CreateCall as CreateCall_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/libraries/CreateCall.sol";
+import { MultiSend as MultiSend_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSend.sol";
+import { MultiSendCallOnly as MultiSendCallOnly_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSendCallOnly.sol";
+import { SignMessageLib as SignMessageLib_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/libraries/SignMessageLib.sol";
+import { GnosisSafeL2 as GnosisSafeL2_1_3_0 } from
+    "@gnosis.pm/safe-contracts-1.3.0/GnosisSafeL2.sol";
 import { GnosisSafe as GnosisSafe_1_3_0 } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
 // Gnosis Safe v1.4.1
-import {
-    SimulateTxAccessor as SimulateTxAccessor_1_4_1
-} from "@gnosis.pm/safe-contracts-1.4.1/accessors/SimulateTxAccessor.sol";
-import {
-    SafeProxyFactory as SafeProxyFactory_1_4_1
-} from "@gnosis.pm/safe-contracts-1.4.1/proxies/SafeProxyFactory.sol";
-import {
-    TokenCallbackHandler as TokenCallbackHandler_1_4_1
-} from "@gnosis.pm/safe-contracts-1.4.1/handler/TokenCallbackHandler.sol";
-import {
-    CompatibilityFallbackHandler as CompatibilityFallbackHandler_1_4_1
-} from "@gnosis.pm/safe-contracts-1.4.1/handler/CompatibilityFallbackHandler.sol";
-import {
-    CreateCall as CreateCall_1_4_1
-} from "@gnosis.pm/safe-contracts-1.4.1/libraries/CreateCall.sol";
-import {
-    MultiSend as MultiSend_1_4_1
-} from "@gnosis.pm/safe-contracts-1.4.1/libraries/MultiSend.sol";
-import {
-    MultiSendCallOnly as MultiSendCallOnly_1_4_1
-} from "@gnosis.pm/safe-contracts-1.4.1/libraries/MultiSendCallOnly.sol";
-import {
-    SignMessageLib as SignMessageLib_1_4_1
-} from "@gnosis.pm/safe-contracts-1.4.1/libraries/SignMessageLib.sol";
+import { SimulateTxAccessor as SimulateTxAccessor_1_4_1 } from
+    "@gnosis.pm/safe-contracts-1.4.1/accessors/SimulateTxAccessor.sol";
+import { SafeProxyFactory as SafeProxyFactory_1_4_1 } from
+    "@gnosis.pm/safe-contracts-1.4.1/proxies/SafeProxyFactory.sol";
+import { TokenCallbackHandler as TokenCallbackHandler_1_4_1 } from
+    "@gnosis.pm/safe-contracts-1.4.1/handler/TokenCallbackHandler.sol";
+import { CompatibilityFallbackHandler as CompatibilityFallbackHandler_1_4_1 } from
+    "@gnosis.pm/safe-contracts-1.4.1/handler/CompatibilityFallbackHandler.sol";
+import { CreateCall as CreateCall_1_4_1 } from
+    "@gnosis.pm/safe-contracts-1.4.1/libraries/CreateCall.sol";
+import { MultiSend as MultiSend_1_4_1 } from
+    "@gnosis.pm/safe-contracts-1.4.1/libraries/MultiSend.sol";
+import { MultiSendCallOnly as MultiSendCallOnly_1_4_1 } from
+    "@gnosis.pm/safe-contracts-1.4.1/libraries/MultiSendCallOnly.sol";
+import { SignMessageLib as SignMessageLib_1_4_1 } from
+    "@gnosis.pm/safe-contracts-1.4.1/libraries/SignMessageLib.sol";
 import { SafeL2 as SafeL2_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/SafeL2.sol";
 import { Safe as Safe_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/Safe.sol";
 
@@ -82,14 +64,13 @@ struct SphinxTransaction {
 
 contract TestUtils is SphinxUtils, IEnum, Test {
     // These are constants thare are used when signing an EIP-712 meta transaction.
-    bytes32 private constant DOMAIN_SEPARATOR =
-        keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256(bytes("Sphinx")),
-                keccak256(bytes("1.0.0"))
-            )
-        );
+    bytes32 private constant DOMAIN_SEPARATOR = keccak256(
+        abi.encode(
+            keccak256("EIP712Domain(string name,string version)"),
+            keccak256(bytes("Sphinx")),
+            keccak256(bytes("1.0.0"))
+        )
+    );
     bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
 
     enum GnosisSafeVersion {
@@ -240,7 +221,11 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         Wallet[] memory _ownerWallets,
         GnosisSafe_1_3_0 _safe,
         GnosisSafeTransaction memory _gnosisSafeTxn
-    ) internal view returns (bytes memory) {
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         bytes[] memory signatures = new bytes[](_ownerWallets.length);
         for (uint256 i = 0; i < _ownerWallets.length; i++) {
             uint256 nonce = _safe.nonce();
@@ -274,9 +259,10 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         return output;
     }
 
-    function getDeploymentMerkleTreeFFI(
-        MultiChainDeploymentMerkleTreeInputs memory _treeInputs
-    ) public returns (SphinxMerkleTree memory) {
+    function getDeploymentMerkleTreeFFI(MultiChainDeploymentMerkleTreeInputs memory _treeInputs)
+        public
+        returns (SphinxMerkleTree memory)
+    {
         string[] memory inputs = new string[](15);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
@@ -301,9 +287,10 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         return abi.decode(result.stdout, (SphinxMerkleTree));
     }
 
-    function getCancellationMerkleTreeFFI(
-        MultiChainCancellationMerkleTreeInputs memory _treeInputs
-    ) public returns (SphinxMerkleTree memory) {
+    function getCancellationMerkleTreeFFI(MultiChainCancellationMerkleTreeInputs memory _treeInputs)
+        public
+        returns (SphinxMerkleTree memory)
+    {
         string[] memory inputs = new string[](10);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
@@ -323,63 +310,61 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         return abi.decode(result.stdout, (SphinxMerkleTree));
     }
 
-    function getDeploymentModuleInputs(
-        DeploymentMerkleTreeInputs memory _treeInputs
-    ) internal returns (DeploymentModuleInputs memory) {
-        NetworkDeploymentMerkleTreeInputs[]
-            memory networkArray = new NetworkDeploymentMerkleTreeInputs[](1);
+    function getDeploymentModuleInputs(DeploymentMerkleTreeInputs memory _treeInputs)
+        internal
+        returns (DeploymentModuleInputs memory)
+    {
+        NetworkDeploymentMerkleTreeInputs[] memory networkArray =
+            new NetworkDeploymentMerkleTreeInputs[](1);
         networkArray[0] = NetworkDeploymentMerkleTreeInputs({
             chainId: _treeInputs.chainId,
             txs: _treeInputs.txs,
             moduleProxyNonce: _treeInputs.moduleProxyNonce
         });
 
-        MultiChainDeploymentMerkleTreeInputs
-            memory multiChainTreeInputs = MultiChainDeploymentMerkleTreeInputs({
-                networks: networkArray,
-                ownerWallets: _treeInputs.ownerWallets,
-                moduleProxy: _treeInputs.moduleProxy,
-                executor: _treeInputs.executor,
-                safeProxy: _treeInputs.safeProxy,
-                uri: _treeInputs.uri,
-                arbitraryChain: _treeInputs.arbitraryChain,
-                forceNumLeavesValue: _treeInputs.forceNumLeavesValue,
-                overridingNumLeavesValue: _treeInputs.overridingNumLeavesValue,
-                forceApprovalLeafIndexNonZero: _treeInputs.forceApprovalLeafIndexNonZero,
-                forceExecutionLeavesChainIdNonZero: _treeInputs.forceExecutionLeavesChainIdNonZero,
-                forceApprovalLeafChainIdNonZero: _treeInputs.forceApprovalLeafChainIdNonZero
-            });
+        MultiChainDeploymentMerkleTreeInputs memory multiChainTreeInputs =
+        MultiChainDeploymentMerkleTreeInputs({
+            networks: networkArray,
+            ownerWallets: _treeInputs.ownerWallets,
+            moduleProxy: _treeInputs.moduleProxy,
+            executor: _treeInputs.executor,
+            safeProxy: _treeInputs.safeProxy,
+            uri: _treeInputs.uri,
+            arbitraryChain: _treeInputs.arbitraryChain,
+            forceNumLeavesValue: _treeInputs.forceNumLeavesValue,
+            overridingNumLeavesValue: _treeInputs.overridingNumLeavesValue,
+            forceApprovalLeafIndexNonZero: _treeInputs.forceApprovalLeafIndexNonZero,
+            forceExecutionLeavesChainIdNonZero: _treeInputs.forceExecutionLeavesChainIdNonZero,
+            forceApprovalLeafChainIdNonZero: _treeInputs.forceApprovalLeafChainIdNonZero
+        });
 
         SphinxMerkleTree memory tree = getDeploymentMerkleTreeFFI(multiChainTreeInputs);
 
         bytes32 merkleRoot = tree.root;
         SphinxLeafWithProof memory approvalLeafWithProof = tree.leaves[0];
-        SphinxLeafWithProof[] memory executionLeavesWithProofs = new SphinxLeafWithProof[](
-            tree.leaves.length - 1
-        );
+        SphinxLeafWithProof[] memory executionLeavesWithProofs =
+            new SphinxLeafWithProof[](tree.leaves.length - 1);
         for (uint256 i = 1; i < tree.leaves.length; i++) {
             executionLeavesWithProofs[i - 1] = tree.leaves[i];
         }
         bytes memory ownerSignatures = signMerkleRoot(_treeInputs.ownerWallets, tree.root);
-        return
-            DeploymentModuleInputs(
-                merkleRoot,
-                approvalLeafWithProof,
-                executionLeavesWithProofs,
-                ownerSignatures
-            );
+        return DeploymentModuleInputs(
+            merkleRoot, approvalLeafWithProof, executionLeavesWithProofs, ownerSignatures
+        );
     }
 
     function signMerkleRoot(
         Wallet[] memory _owners,
         bytes32 _merkleRoot
-    ) private pure returns (bytes memory) {
+    )
+        private
+        pure
+        returns (bytes memory)
+    {
         require(_owners.length > 0, "Sphinx: owners array must have at least one element");
 
         bytes memory typedData = abi.encodePacked(
-            "\x19\x01",
-            DOMAIN_SEPARATOR,
-            keccak256(abi.encode(TYPE_HASH, _merkleRoot))
+            "\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _merkleRoot))
         );
 
         bytes memory signatures;
@@ -394,13 +379,17 @@ contract TestUtils is SphinxUtils, IEnum, Test {
     function getNumExecutionLeavesOnChain(
         SphinxLeafWithProof[] memory _leavesWithProofs,
         uint256 _chainId
-    ) internal pure returns (uint256) {
+    )
+        internal
+        pure
+        returns (uint256)
+    {
         uint256 numExecutionLeavesOnChain = 0;
         for (uint256 i = 0; i < _leavesWithProofs.length; i++) {
             SphinxLeafWithProof memory leafWithProof = _leavesWithProofs[i];
             if (
-                leafWithProof.leaf.leafType == SphinxLeafType.EXECUTE &&
-                leafWithProof.leaf.chainId == _chainId
+                leafWithProof.leaf.leafType == SphinxLeafType.EXECUTE
+                    && leafWithProof.leaf.chainId == _chainId
             ) {
                 numExecutionLeavesOnChain += 1;
             }
@@ -410,12 +399,14 @@ contract TestUtils is SphinxUtils, IEnum, Test {
 
     function getMultiChainDeploymentModuleInputs(
         MultiChainDeploymentMerkleTreeInputs memory _treeInputs
-    ) internal returns (DeploymentModuleInputs[] memory) {
+    )
+        internal
+        returns (DeploymentModuleInputs[] memory)
+    {
         SphinxMerkleTree memory tree = getDeploymentMerkleTreeFFI(_treeInputs);
 
-        DeploymentModuleInputs[] memory moduleInputArray = new DeploymentModuleInputs[](
-            _treeInputs.networks.length
-        );
+        DeploymentModuleInputs[] memory moduleInputArray =
+            new DeploymentModuleInputs[](_treeInputs.networks.length);
         for (uint256 i = 0; i < _treeInputs.networks.length; i++) {
             NetworkDeploymentMerkleTreeInputs memory network = _treeInputs.networks[i];
 
@@ -424,8 +415,8 @@ contract TestUtils is SphinxUtils, IEnum, Test {
             for (uint256 j = 0; j < tree.leaves.length; j++) {
                 SphinxLeafWithProof memory leafWithProof = tree.leaves[j];
                 if (
-                    leafWithProof.leaf.leafType == SphinxLeafType.APPROVE &&
-                    leafWithProof.leaf.chainId == network.chainId
+                    leafWithProof.leaf.leafType == SphinxLeafType.APPROVE
+                        && leafWithProof.leaf.chainId == network.chainId
                 ) {
                     approvalLeafWithProof = leafWithProof;
                     foundApprovalLeaf = true;
@@ -433,19 +424,16 @@ contract TestUtils is SphinxUtils, IEnum, Test {
             }
             assert(foundApprovalLeaf);
 
-            uint256 numExecutionLeavesOnChain = getNumExecutionLeavesOnChain(
-                tree.leaves,
-                network.chainId
-            );
-            SphinxLeafWithProof[] memory executionLeavesWithProofs = new SphinxLeafWithProof[](
-                numExecutionLeavesOnChain
-            );
+            uint256 numExecutionLeavesOnChain =
+                getNumExecutionLeavesOnChain(tree.leaves, network.chainId);
+            SphinxLeafWithProof[] memory executionLeavesWithProofs =
+                new SphinxLeafWithProof[](numExecutionLeavesOnChain);
             uint256 executionLeafIndex = 0;
             for (uint256 k = 0; k < tree.leaves.length; k++) {
                 SphinxLeafWithProof memory leafWithProof = tree.leaves[k];
                 if (
-                    leafWithProof.leaf.leafType == SphinxLeafType.EXECUTE &&
-                    leafWithProof.leaf.chainId == network.chainId
+                    leafWithProof.leaf.leafType == SphinxLeafType.EXECUTE
+                        && leafWithProof.leaf.chainId == network.chainId
                 ) {
                     executionLeavesWithProofs[executionLeafIndex] = leafWithProof;
                     executionLeafIndex += 1;
@@ -464,27 +452,28 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         return moduleInputArray;
     }
 
-    function getCancellationModuleInputs(
-        CancellationMerkleTreeInputs memory _treeInputs
-    ) internal returns (CancellationModuleInputs memory) {
-        NetworkCancellationMerkleTreeInputs[]
-            memory networkArray = new NetworkCancellationMerkleTreeInputs[](1);
+    function getCancellationModuleInputs(CancellationMerkleTreeInputs memory _treeInputs)
+        internal
+        returns (CancellationModuleInputs memory)
+    {
+        NetworkCancellationMerkleTreeInputs[] memory networkArray =
+            new NetworkCancellationMerkleTreeInputs[](1);
         networkArray[0] = NetworkCancellationMerkleTreeInputs({
             chainId: _treeInputs.chainId,
             merkleRootToCancel: _treeInputs.merkleRootToCancel,
             moduleProxyNonce: _treeInputs.moduleProxyNonce
         });
 
-        MultiChainCancellationMerkleTreeInputs
-            memory multiChainTreeInputs = MultiChainCancellationMerkleTreeInputs({
-                networks: networkArray,
-                ownerWallets: _treeInputs.ownerWallets,
-                moduleProxy: _treeInputs.moduleProxy,
-                executor: _treeInputs.executor,
-                safeProxy: _treeInputs.safeProxy,
-                uri: _treeInputs.uri,
-                forceCancellationLeafIndexNonZero: _treeInputs.forceCancellationLeafIndexNonZero
-            });
+        MultiChainCancellationMerkleTreeInputs memory multiChainTreeInputs =
+        MultiChainCancellationMerkleTreeInputs({
+            networks: networkArray,
+            ownerWallets: _treeInputs.ownerWallets,
+            moduleProxy: _treeInputs.moduleProxy,
+            executor: _treeInputs.executor,
+            safeProxy: _treeInputs.safeProxy,
+            uri: _treeInputs.uri,
+            forceCancellationLeafIndexNonZero: _treeInputs.forceCancellationLeafIndexNonZero
+        });
 
         SphinxMerkleTree memory tree = getCancellationMerkleTreeFFI(multiChainTreeInputs);
 
@@ -496,12 +485,14 @@ contract TestUtils is SphinxUtils, IEnum, Test {
 
     function getMultiChainCancellationModuleInputs(
         MultiChainCancellationMerkleTreeInputs memory _treeInputs
-    ) internal returns (CancellationModuleInputs[] memory) {
+    )
+        internal
+        returns (CancellationModuleInputs[] memory)
+    {
         SphinxMerkleTree memory tree = getCancellationMerkleTreeFFI(_treeInputs);
 
-        CancellationModuleInputs[] memory moduleInputArray = new CancellationModuleInputs[](
-            _treeInputs.networks.length
-        );
+        CancellationModuleInputs[] memory moduleInputArray =
+            new CancellationModuleInputs[](_treeInputs.networks.length);
         for (uint256 i = 0; i < _treeInputs.networks.length; i++) {
             moduleInputArray[i] = CancellationModuleInputs({
                 merkleRoot: tree.root,
@@ -515,7 +506,11 @@ contract TestUtils is SphinxUtils, IEnum, Test {
     function deployCodeViaCreate2(
         string memory _initCodePath,
         bytes32 _salt
-    ) internal virtual returns (address addr) {
+    )
+        internal
+        virtual
+        returns (address addr)
+    {
         bytes memory initCode = vm.getCode(_initCodePath);
         assembly {
             addr := create2(0, add(initCode, 0x20), mload(initCode), _salt)
@@ -533,32 +528,27 @@ contract TestUtils is SphinxUtils, IEnum, Test {
             bytes32(0)
         );
         address safeSingletonL1Addr = deployCodeViaCreate2(
-            "contract-artifacts/gnosis-safe/v1.3.0/GnosisSafe.sol/GnosisSafe.json",
-            bytes32(0)
+            "contract-artifacts/gnosis-safe/v1.3.0/GnosisSafe.sol/GnosisSafe.json", bytes32(0)
         );
         address safeSingletonL2Addr = deployCodeViaCreate2(
-            "contract-artifacts/gnosis-safe/v1.3.0/GnosisSafeL2.sol/GnosisSafeL2.json",
-            bytes32(0)
+            "contract-artifacts/gnosis-safe/v1.3.0/GnosisSafeL2.sol/GnosisSafeL2.json", bytes32(0)
         );
 
-        return
-            GnosisSafeContracts_1_3_0({
-                simulateTxAccessor: new SimulateTxAccessor_1_3_0{ salt: bytes32(0) }(),
-                safeProxyFactory: GnosisSafeProxyFactory_1_3_0(safeProxyFactoryAddr),
-                // Deploy handlers
-                defaultCallbackHandler: new DefaultCallbackHandler_1_3_0{ salt: bytes32(0) }(),
-                compatibilityFallbackHandler: new CompatibilityFallbackHandler_1_3_0{
-                    salt: bytes32(0)
-                }(),
-                // Deploy libraries
-                createCall: new CreateCall_1_3_0{ salt: bytes32(0) }(),
-                multiSend: new MultiSend_1_3_0{ salt: bytes32(0) }(),
-                multiSendCallOnly: new MultiSendCallOnly_1_3_0{ salt: bytes32(0) }(),
-                signMessageLib: new SignMessageLib_1_3_0{ salt: bytes32(0) }(),
-                // Deploy singletons
-                safeL1Singleton: GnosisSafe_1_3_0(payable(safeSingletonL1Addr)),
-                safeL2Singleton: GnosisSafeL2_1_3_0(payable(safeSingletonL2Addr))
-            });
+        return GnosisSafeContracts_1_3_0({
+            simulateTxAccessor: new SimulateTxAccessor_1_3_0{ salt: bytes32(0) }(),
+            safeProxyFactory: GnosisSafeProxyFactory_1_3_0(safeProxyFactoryAddr),
+            // Deploy handlers
+            defaultCallbackHandler: new DefaultCallbackHandler_1_3_0{ salt: bytes32(0) }(),
+            compatibilityFallbackHandler: new CompatibilityFallbackHandler_1_3_0{ salt: bytes32(0) }(),
+            // Deploy libraries
+            createCall: new CreateCall_1_3_0{ salt: bytes32(0) }(),
+            multiSend: new MultiSend_1_3_0{ salt: bytes32(0) }(),
+            multiSendCallOnly: new MultiSendCallOnly_1_3_0{ salt: bytes32(0) }(),
+            signMessageLib: new SignMessageLib_1_3_0{ salt: bytes32(0) }(),
+            // Deploy singletons
+            safeL1Singleton: GnosisSafe_1_3_0(payable(safeSingletonL1Addr)),
+            safeL2Singleton: GnosisSafeL2_1_3_0(payable(safeSingletonL2Addr))
+        });
     }
 
     function deployGnosisSafeContracts_1_4_1() public returns (GnosisSafeContracts_1_4_1 memory) {
@@ -570,89 +560,73 @@ contract TestUtils is SphinxUtils, IEnum, Test {
             bytes32(0)
         );
         address safeSingletonL1Addr = deployCodeViaCreate2(
-            "contract-artifacts/gnosis-safe/v1.4.1/Safe.sol/Safe.json",
-            bytes32(0)
+            "contract-artifacts/gnosis-safe/v1.4.1/Safe.sol/Safe.json", bytes32(0)
         );
         address safeSingletonL2Addr = deployCodeViaCreate2(
-            "contract-artifacts/gnosis-safe/v1.4.1/SafeL2.sol/SafeL2.json",
-            bytes32(0)
+            "contract-artifacts/gnosis-safe/v1.4.1/SafeL2.sol/SafeL2.json", bytes32(0)
         );
 
-        return
-            GnosisSafeContracts_1_4_1({
-                simulateTxAccessor: new SimulateTxAccessor_1_4_1{ salt: bytes32(0) }(),
-                safeProxyFactory: SafeProxyFactory_1_4_1(safeProxyFactoryAddr),
-                // Deploy handlers
-                tokenCallbackHandler: new TokenCallbackHandler_1_4_1{ salt: bytes32(0) }(),
-                compatibilityFallbackHandler: new CompatibilityFallbackHandler_1_4_1{
-                    salt: bytes32(0)
-                }(),
-                // Deploy libraries
-                createCall: new CreateCall_1_4_1{ salt: bytes32(0) }(),
-                multiSend: new MultiSend_1_4_1{ salt: bytes32(0) }(),
-                multiSendCallOnly: new MultiSendCallOnly_1_4_1{ salt: bytes32(0) }(),
-                signMessageLib: new SignMessageLib_1_4_1{ salt: bytes32(0) }(),
-                // Deploy singletons
-                safeL1Singleton: Safe_1_4_1(payable(safeSingletonL1Addr)),
-                safeL2Singleton: SafeL2_1_4_1(payable(safeSingletonL2Addr))
-            });
+        return GnosisSafeContracts_1_4_1({
+            simulateTxAccessor: new SimulateTxAccessor_1_4_1{ salt: bytes32(0) }(),
+            safeProxyFactory: SafeProxyFactory_1_4_1(safeProxyFactoryAddr),
+            // Deploy handlers
+            tokenCallbackHandler: new TokenCallbackHandler_1_4_1{ salt: bytes32(0) }(),
+            compatibilityFallbackHandler: new CompatibilityFallbackHandler_1_4_1{ salt: bytes32(0) }(),
+            // Deploy libraries
+            createCall: new CreateCall_1_4_1{ salt: bytes32(0) }(),
+            multiSend: new MultiSend_1_4_1{ salt: bytes32(0) }(),
+            multiSendCallOnly: new MultiSendCallOnly_1_4_1{ salt: bytes32(0) }(),
+            signMessageLib: new SignMessageLib_1_4_1{ salt: bytes32(0) }(),
+            // Deploy singletons
+            safeL1Singleton: Safe_1_4_1(payable(safeSingletonL1Addr)),
+            safeL2Singleton: SafeL2_1_4_1(payable(safeSingletonL2Addr))
+        });
     }
 
-    function deployGnosisSafeContracts(
-        GnosisSafeVersion _gnosisSafeVersion
-    ) internal returns (GnosisSafeAddresses memory) {
+    function deployGnosisSafeContracts(GnosisSafeVersion _gnosisSafeVersion)
+        internal
+        returns (GnosisSafeAddresses memory)
+    {
         if (_gnosisSafeVersion == GnosisSafeVersion.L1_1_3_0) {
             GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
-            return
-                GnosisSafeAddresses({
-                    multiSend: address(safeContracts.multiSend),
-                    multiSendCallOnly: address(safeContracts.multiSendCallOnly),
-                    compatibilityFallbackHandler: address(
-                        safeContracts.compatibilityFallbackHandler
-                    ),
-                    safeProxyFactory: address(safeContracts.safeProxyFactory),
-                    safeSingleton: address(safeContracts.safeL1Singleton),
-                    createCall: address(safeContracts.createCall)
-                });
+            return GnosisSafeAddresses({
+                multiSend: address(safeContracts.multiSend),
+                multiSendCallOnly: address(safeContracts.multiSendCallOnly),
+                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                safeProxyFactory: address(safeContracts.safeProxyFactory),
+                safeSingleton: address(safeContracts.safeL1Singleton),
+                createCall: address(safeContracts.createCall)
+            });
         } else if (_gnosisSafeVersion == GnosisSafeVersion.L2_1_3_0) {
             GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
-            return
-                GnosisSafeAddresses({
-                    multiSend: address(safeContracts.multiSend),
-                    multiSendCallOnly: address(safeContracts.multiSendCallOnly),
-                    compatibilityFallbackHandler: address(
-                        safeContracts.compatibilityFallbackHandler
-                    ),
-                    safeProxyFactory: address(safeContracts.safeProxyFactory),
-                    safeSingleton: address(safeContracts.safeL2Singleton),
-                    createCall: address(safeContracts.createCall)
-                });
+            return GnosisSafeAddresses({
+                multiSend: address(safeContracts.multiSend),
+                multiSendCallOnly: address(safeContracts.multiSendCallOnly),
+                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                safeProxyFactory: address(safeContracts.safeProxyFactory),
+                safeSingleton: address(safeContracts.safeL2Singleton),
+                createCall: address(safeContracts.createCall)
+            });
         } else if (_gnosisSafeVersion == GnosisSafeVersion.L1_1_4_1) {
             GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
-            return
-                GnosisSafeAddresses({
-                    multiSend: address(safeContracts.multiSend),
-                    multiSendCallOnly: address(safeContracts.multiSendCallOnly),
-                    compatibilityFallbackHandler: address(
-                        safeContracts.compatibilityFallbackHandler
-                    ),
-                    safeProxyFactory: address(safeContracts.safeProxyFactory),
-                    safeSingleton: address(safeContracts.safeL1Singleton),
-                    createCall: address(safeContracts.createCall)
-                });
+            return GnosisSafeAddresses({
+                multiSend: address(safeContracts.multiSend),
+                multiSendCallOnly: address(safeContracts.multiSendCallOnly),
+                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                safeProxyFactory: address(safeContracts.safeProxyFactory),
+                safeSingleton: address(safeContracts.safeL1Singleton),
+                createCall: address(safeContracts.createCall)
+            });
         } else if (_gnosisSafeVersion == GnosisSafeVersion.L2_1_4_1) {
             GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
-            return
-                GnosisSafeAddresses({
-                    multiSend: address(safeContracts.multiSend),
-                    multiSendCallOnly: address(safeContracts.multiSendCallOnly),
-                    compatibilityFallbackHandler: address(
-                        safeContracts.compatibilityFallbackHandler
-                    ),
-                    safeProxyFactory: address(safeContracts.safeProxyFactory),
-                    safeSingleton: address(safeContracts.safeL2Singleton),
-                    createCall: address(safeContracts.createCall)
-                });
+            return GnosisSafeAddresses({
+                multiSend: address(safeContracts.multiSend),
+                multiSendCallOnly: address(safeContracts.multiSendCallOnly),
+                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                safeProxyFactory: address(safeContracts.safeProxyFactory),
+                safeSingleton: address(safeContracts.safeL2Singleton),
+                createCall: address(safeContracts.createCall)
+            });
         } else {
             revert("Unknown Gnosis Safe version. Should never happen.");
         }
@@ -663,21 +637,26 @@ contract TestUtils is SphinxUtils, IEnum, Test {
     function makeGnosisSafeInitializerData(
         SphinxModuleProxyFactory _moduleProxyFactory,
         uint256 _saltNonce,
-address[] memory _owners,
-uint256 _threshold,
-address _multiSend,
-address _fallbackHandler
-    ) internal pure returns (bytes memory) {
+        address[] memory _owners,
+        uint256 _threshold,
+        address _multiSend,
+        address _fallbackHandler
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         // Encode the data that will deploy the Sphinx Module proxy.
         bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
-            _moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
-            _saltNonce
+            _moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector, _saltNonce
         );
         // Encode the data in a format that can be executed using `MultiSend`.
         bytes memory deployModuleMultiSendData = abi.encodePacked(
-            // We use `Call` so that the Gnosis Safe proxy calls the `SphinxModuleProxyFactory` to deploy
+            // We use `Call` so that the Gnosis Safe proxy calls the `SphinxModuleProxyFactory` to
+            // deploy
             // the Sphinx Module proxy. This makes it easier for off-chain tooling to calculate the
-            // deployed Sphinx Module proxy address because the `SphinxModuleProxyFactory`'s address is a
+            // deployed Sphinx Module proxy address because the `SphinxModuleProxyFactory`'s address
+            // is a
             // known constant.
             uint8(Enum.Operation.Call),
             _moduleProxyFactory,
@@ -688,8 +667,7 @@ address _fallbackHandler
 
         // Encode the data that will enable the Sphinx Module proxy in the Gnosis Safe proxy.
         bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
-            _moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
-            _saltNonce
+            _moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector, _saltNonce
         );
         // Encode the data in a format that can be executed using `MultiSend`.
         bytes memory enableModuleMultiSendData = abi.encodePacked(
@@ -698,15 +676,16 @@ address _fallbackHandler
             // in the Gnosis Safe proxy's initializer data.
             uint8(Enum.Operation.DelegateCall),
             _moduleProxyFactory,
-            uint256(0), // Set the value to 0 because we never send native gas tokens in this delegatecall.
+            uint256(0), // Set the value to 0 because we never send native gas tokens in this
+                // delegatecall.
             encodedEnableModuleCall.length,
             encodedEnableModuleCall
         );
 
         bytes memory multiSendData = abi.encodeWithSelector(
-                MultiSend_1_3_0.multiSend.selector,
-                bytes.concat(deployModuleMultiSendData, enableModuleMultiSendData)
-            );
+            MultiSend_1_3_0.multiSend.selector,
+            bytes.concat(deployModuleMultiSendData, enableModuleMultiSendData)
+        );
 
         return abi.encodeWithSelector(
             GnosisSafe_1_3_0.setup.selector,
@@ -724,20 +703,20 @@ address _fallbackHandler
     }
 
     // Used off-chain to get the ABI of the `SphinxMerkleTree` struct.
-    function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory) {}
+    function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory) { }
 
     // Used off-chain to get the ABI of the `SphinxTransaction` struct.
-    function sphinxTransactionArrayType() external returns (SphinxTransaction[][] memory) {}
+    function sphinxTransactionArrayType() external returns (SphinxTransaction[][] memory) { }
 
     // Used off-chain to get the ABI of `NetworkDeploymentMerkleTreeInputs[]`.
     function networkDeploymentMerkleTreeInputsArrayType()
         external
         returns (NetworkDeploymentMerkleTreeInputs[] memory)
-    {}
+    { }
 
     // Used off-chain to get the ABI of `NetworkCancellationMerkleTreeInputs[]`.
     function networkCancellationMerkleTreeInputsArrayType()
         external
         returns (NetworkCancellationMerkleTreeInputs[] memory)
-    {}
+    { }
 }

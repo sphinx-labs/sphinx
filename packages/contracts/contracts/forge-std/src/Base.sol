@@ -29,7 +29,7 @@ abstract contract CommonBase {
     StdStorage internal stdstore;
 }
 
-abstract contract TestBase is CommonBase {}
+abstract contract TestBase is CommonBase { }
 
 abstract contract ScriptBase is CommonBase {
     VmSafe internal constant vmSafe = VmSafe(VM_ADDRESS);

@@ -36,7 +36,8 @@ interface VmSafe {
         Create,
         // The account was selfdestructed.
         SelfDestruct,
-        // Synthetic access indicating the current context has resumed after a previous sub-context (AccountAccess).
+        // Synthetic access indicating the current context has resumed after a previous sub-context
+        // (AccountAccess).
         Resume,
         // The account's balance was read.
         Balance,
@@ -164,7 +165,8 @@ interface VmSafe {
         // If kind is a Resume, then account represents a account context that has resumed.
         AccountAccessKind kind;
         // The account that was accessed.
-        // It's either the account created, callee or a selfdestruct recipient for CREATE, CALL or SELFDESTRUCT.
+        // It's either the account created, callee or a selfdestruct recipient for CREATE, CALL or
+        // SELFDESTRUCT.
         address account;
         // What accessed the account.
         address accessor;
@@ -213,56 +215,76 @@ interface VmSafe {
     /// Reverts if the variable was not found or could not be parsed.
     function envAddress(string calldata name) external view returns (address value);
 
-    /// Gets the environment variable `name` and parses it as an array of `address`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `address`, delimited by
+    /// `delim`.
     /// Reverts if the variable was not found or could not be parsed.
     function envAddress(
         string calldata name,
         string calldata delim
-    ) external view returns (address[] memory value);
+    )
+        external
+        view
+        returns (address[] memory value);
 
     /// Gets the environment variable `name` and parses it as `bool`.
     /// Reverts if the variable was not found or could not be parsed.
     function envBool(string calldata name) external view returns (bool value);
 
-    /// Gets the environment variable `name` and parses it as an array of `bool`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `bool`, delimited by
+    /// `delim`.
     /// Reverts if the variable was not found or could not be parsed.
     function envBool(
         string calldata name,
         string calldata delim
-    ) external view returns (bool[] memory value);
+    )
+        external
+        view
+        returns (bool[] memory value);
 
     /// Gets the environment variable `name` and parses it as `bytes32`.
     /// Reverts if the variable was not found or could not be parsed.
     function envBytes32(string calldata name) external view returns (bytes32 value);
 
-    /// Gets the environment variable `name` and parses it as an array of `bytes32`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `bytes32`, delimited by
+    /// `delim`.
     /// Reverts if the variable was not found or could not be parsed.
     function envBytes32(
         string calldata name,
         string calldata delim
-    ) external view returns (bytes32[] memory value);
+    )
+        external
+        view
+        returns (bytes32[] memory value);
 
     /// Gets the environment variable `name` and parses it as `bytes`.
     /// Reverts if the variable was not found or could not be parsed.
     function envBytes(string calldata name) external view returns (bytes memory value);
 
-    /// Gets the environment variable `name` and parses it as an array of `bytes`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `bytes`, delimited by
+    /// `delim`.
     /// Reverts if the variable was not found or could not be parsed.
     function envBytes(
         string calldata name,
         string calldata delim
-    ) external view returns (bytes[] memory value);
+    )
+        external
+        view
+        returns (bytes[] memory value);
 
     /// Gets the environment variable `name` and parses it as `int256`.
     /// Reverts if the variable was not found or could not be parsed.
     function envInt(string calldata name) external view returns (int256 value);
 
-    /// Gets the environment variable `name` and parses it as an array of `int256`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `int256`, delimited by
+    /// `delim`.
     /// Reverts if the variable was not found or could not be parsed.
     function envInt(
         string calldata name,
         string calldata delim
-    ) external view returns (int256[] memory value);
+    )
+        external
+        view
+        returns (int256[] memory value);
 
     /// Gets the environment variable `name` and parses it as `bool`.
     /// Reverts if the variable could not be parsed.
@@ -275,48 +297,73 @@ interface VmSafe {
     function envOr(
         string calldata name,
         uint256 defaultValue
-    ) external view returns (uint256 value);
+    )
+        external
+        view
+        returns (uint256 value);
 
-    /// Gets the environment variable `name` and parses it as an array of `address`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `address`, delimited by
+    /// `delim`.
     /// Reverts if the variable could not be parsed.
     /// Returns `defaultValue` if the variable was not found.
     function envOr(
         string calldata name,
         string calldata delim,
         address[] calldata defaultValue
-    ) external view returns (address[] memory value);
+    )
+        external
+        view
+        returns (address[] memory value);
 
-    /// Gets the environment variable `name` and parses it as an array of `bytes32`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `bytes32`, delimited by
+    /// `delim`.
     /// Reverts if the variable could not be parsed.
     /// Returns `defaultValue` if the variable was not found.
     function envOr(
         string calldata name,
         string calldata delim,
         bytes32[] calldata defaultValue
-    ) external view returns (bytes32[] memory value);
+    )
+        external
+        view
+        returns (bytes32[] memory value);
 
-    /// Gets the environment variable `name` and parses it as an array of `string`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `string`, delimited by
+    /// `delim`.
     /// Reverts if the variable could not be parsed.
     /// Returns `defaultValue` if the variable was not found.
     function envOr(
         string calldata name,
         string calldata delim,
         string[] calldata defaultValue
-    ) external view returns (string[] memory value);
+    )
+        external
+        view
+        returns (string[] memory value);
 
-    /// Gets the environment variable `name` and parses it as an array of `bytes`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `bytes`, delimited by
+    /// `delim`.
     /// Reverts if the variable could not be parsed.
     /// Returns `defaultValue` if the variable was not found.
     function envOr(
         string calldata name,
         string calldata delim,
         bytes[] calldata defaultValue
-    ) external view returns (bytes[] memory value);
+    )
+        external
+        view
+        returns (bytes[] memory value);
 
     /// Gets the environment variable `name` and parses it as `int256`.
     /// Reverts if the variable could not be parsed.
     /// Returns `defaultValue` if the variable was not found.
-    function envOr(string calldata name, int256 defaultValue) external view returns (int256 value);
+    function envOr(
+        string calldata name,
+        int256 defaultValue
+    )
+        external
+        view
+        returns (int256 value);
 
     /// Gets the environment variable `name` and parses it as `address`.
     /// Reverts if the variable could not be parsed.
@@ -324,7 +371,10 @@ interface VmSafe {
     function envOr(
         string calldata name,
         address defaultValue
-    ) external view returns (address value);
+    )
+        external
+        view
+        returns (address value);
 
     /// Gets the environment variable `name` and parses it as `bytes32`.
     /// Reverts if the variable could not be parsed.
@@ -332,7 +382,10 @@ interface VmSafe {
     function envOr(
         string calldata name,
         bytes32 defaultValue
-    ) external view returns (bytes32 value);
+    )
+        external
+        view
+        returns (bytes32 value);
 
     /// Gets the environment variable `name` and parses it as `string`.
     /// Reverts if the variable could not be parsed.
@@ -340,7 +393,10 @@ interface VmSafe {
     function envOr(
         string calldata name,
         string calldata defaultValue
-    ) external view returns (string memory value);
+    )
+        external
+        view
+        returns (string memory value);
 
     /// Gets the environment variable `name` and parses it as `bytes`.
     /// Reverts if the variable could not be parsed.
@@ -348,56 +404,79 @@ interface VmSafe {
     function envOr(
         string calldata name,
         bytes calldata defaultValue
-    ) external view returns (bytes memory value);
+    )
+        external
+        view
+        returns (bytes memory value);
 
-    /// Gets the environment variable `name` and parses it as an array of `bool`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `bool`, delimited by
+    /// `delim`.
     /// Reverts if the variable could not be parsed.
     /// Returns `defaultValue` if the variable was not found.
     function envOr(
         string calldata name,
         string calldata delim,
         bool[] calldata defaultValue
-    ) external view returns (bool[] memory value);
+    )
+        external
+        view
+        returns (bool[] memory value);
 
-    /// Gets the environment variable `name` and parses it as an array of `uint256`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `uint256`, delimited by
+    /// `delim`.
     /// Reverts if the variable could not be parsed.
     /// Returns `defaultValue` if the variable was not found.
     function envOr(
         string calldata name,
         string calldata delim,
         uint256[] calldata defaultValue
-    ) external view returns (uint256[] memory value);
+    )
+        external
+        view
+        returns (uint256[] memory value);
 
-    /// Gets the environment variable `name` and parses it as an array of `int256`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `int256`, delimited by
+    /// `delim`.
     /// Reverts if the variable could not be parsed.
     /// Returns `defaultValue` if the variable was not found.
     function envOr(
         string calldata name,
         string calldata delim,
         int256[] calldata defaultValue
-    ) external view returns (int256[] memory value);
+    )
+        external
+        view
+        returns (int256[] memory value);
 
     /// Gets the environment variable `name` and parses it as `string`.
     /// Reverts if the variable was not found or could not be parsed.
     function envString(string calldata name) external view returns (string memory value);
 
-    /// Gets the environment variable `name` and parses it as an array of `string`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `string`, delimited by
+    /// `delim`.
     /// Reverts if the variable was not found or could not be parsed.
     function envString(
         string calldata name,
         string calldata delim
-    ) external view returns (string[] memory value);
+    )
+        external
+        view
+        returns (string[] memory value);
 
     /// Gets the environment variable `name` and parses it as `uint256`.
     /// Reverts if the variable was not found or could not be parsed.
     function envUint(string calldata name) external view returns (uint256 value);
 
-    /// Gets the environment variable `name` and parses it as an array of `uint256`, delimited by `delim`.
+    /// Gets the environment variable `name` and parses it as an array of `uint256`, delimited by
+    /// `delim`.
     /// Reverts if the variable was not found or could not be parsed.
     function envUint(
         string calldata name,
         string calldata delim
-    ) external view returns (uint256[] memory value);
+    )
+        external
+        view
+        returns (uint256[] memory value);
 
     /// Sets environment variables.
     function setEnv(string calldata name, string calldata value) external;
@@ -405,9 +484,9 @@ interface VmSafe {
     // ======== EVM ========
 
     /// Gets all accessed reads and write slot from a `vm.record` session, for a given address.
-    function accesses(
-        address target
-    ) external returns (bytes32[] memory readSlots, bytes32[] memory writeSlots);
+    function accesses(address target)
+        external
+        returns (bytes32[] memory readSlots, bytes32[] memory writeSlots);
 
     /// Gets the address for a given private key.
     function addr(uint256 privateKey) external pure returns (address keyAddr);
@@ -418,16 +497,20 @@ interface VmSafe {
         uint256 toBlock,
         address target,
         bytes32[] calldata topics
-    ) external returns (EthGetLogs[] memory logs);
+    )
+        external
+        returns (EthGetLogs[] memory logs);
 
     /// Gets the current `block.number`.
-    /// You should use this instead of `block.number` if you use `vm.roll`, as `block.number` is assumed to be constant across a transaction,
+    /// You should use this instead of `block.number` if you use `vm.roll`, as `block.number` is
+    /// assumed to be constant across a transaction,
     /// and as a result will get optimized out by the compiler.
     /// See https://github.com/foundry-rs/foundry/issues/6180
     function getBlockNumber() external view returns (uint256 height);
 
     /// Gets the current `block.timestamp`.
-    /// You should use this instead of `block.timestamp` if you use `vm.warp`, as `block.timestamp` is assumed to be constant across a transaction,
+    /// You should use this instead of `block.timestamp` if you use `vm.warp`, as `block.timestamp`
+    /// is assumed to be constant across a transaction,
     /// and as a result will get optimized out by the compiler.
     /// See https://github.com/foundry-rs/foundry/issues/6180
     function getBlockTimestamp() external view returns (uint256 timestamp);
@@ -436,13 +519,17 @@ interface VmSafe {
     function getMappingKeyAndParentOf(
         address target,
         bytes32 elementSlot
-    ) external returns (bool found, bytes32 key, bytes32 parent);
+    )
+        external
+        returns (bool found, bytes32 key, bytes32 parent);
 
     /// Gets the number of elements in the mapping at the given slot, for a given address.
     function getMappingLength(
         address target,
         bytes32 mappingSlot
-    ) external returns (uint256 length);
+    )
+        external
+        returns (uint256 length);
 
     /// Gets the elements at index idx of the mapping at the given slot, for a given address. The
     /// index must be less than the length of the mapping (i.e. the number of keys in the mapping).
@@ -450,7 +537,9 @@ interface VmSafe {
         address target,
         bytes32 mappingSlot,
         uint256 idx
-    ) external returns (bytes32 value);
+    )
+        external
+        returns (bytes32 value);
 
     /// Gets the nonce of an account.
     function getNonce(address account) external view returns (uint64 nonce);
@@ -477,19 +566,27 @@ interface VmSafe {
     function rpc(
         string calldata method,
         string calldata params
-    ) external returns (bytes memory data);
+    )
+        external
+        returns (bytes memory data);
 
     /// Signs `digest` with `privateKey` using the secp256r1 curve.
     function signP256(
         uint256 privateKey,
         bytes32 digest
-    ) external pure returns (bytes32 r, bytes32 s);
+    )
+        external
+        pure
+        returns (bytes32 r, bytes32 s);
 
     /// Signs `digest` with `privateKey` using the secp256k1 curve.
     function sign(
         uint256 privateKey,
         bytes32 digest
-    ) external pure returns (uint8 v, bytes32 r, bytes32 s);
+    )
+        external
+        pure
+        returns (uint8 v, bytes32 r, bytes32 s);
 
     /// Starts recording all map SSTOREs for later retrieval.
     function startMappingRecording() external;
@@ -498,7 +595,8 @@ interface VmSafe {
     /// along with the context of the calls
     function startStateDiffRecording() external;
 
-    /// Returns an ordered array of all account accesses from a `vm.startStateDiffRecording` session.
+    /// Returns an ordered array of all account accesses from a `vm.startStateDiffRecording`
+    /// session.
     function stopAndReturnStateDiff() external returns (AccountAccess[] memory accountAccesses);
 
     /// Stops recording all map SSTOREs for later retrieval and clears the recorded data.
@@ -506,17 +604,21 @@ interface VmSafe {
 
     // ======== Filesystem ========
 
-    /// Closes file for reading, resetting the offset and allowing to read it from beginning with readLine.
+    /// Closes file for reading, resetting the offset and allowing to read it from beginning with
+    /// readLine.
     /// `path` is relative to the project root.
     function closeFile(string calldata path) external;
 
-    /// Copies the contents of one file to another. This function will **overwrite** the contents of `to`.
-    /// On success, the total number of bytes copied is returned and it is equal to the length of the `to` file as reported by `metadata`.
+    /// Copies the contents of one file to another. This function will **overwrite** the contents of
+    /// `to`.
+    /// On success, the total number of bytes copied is returned and it is equal to the length of
+    /// the `to` file as reported by `metadata`.
     /// Both `from` and `to` are relative to the project root.
     function copyFile(string calldata from, string calldata to) external returns (uint64 copied);
 
     /// Creates a new, empty directory at the provided path.
-    /// This cheatcode will revert in the following situations, but is not limited to just these cases:
+    /// This cheatcode will revert in the following situations, but is not limited to just these
+    /// cases:
     /// - User lacks permissions to modify `path`.
     /// - A parent of the given path doesn't exist and `recursive` is false.
     /// - `path` already exists and `recursive` is false.
@@ -532,27 +634,33 @@ interface VmSafe {
     /// Given a path, query the file system to get information about a file, directory, etc.
     function fsMetadata(string calldata path) external view returns (FsMetadata memory metadata);
 
-    /// Gets the creation bytecode from an artifact file. Takes in the relative path to the json file.
-    function getCode(
-        string calldata artifactPath
-    ) external view returns (bytes memory creationBytecode);
+    /// Gets the creation bytecode from an artifact file. Takes in the relative path to the json
+    /// file.
+    function getCode(string calldata artifactPath)
+        external
+        view
+        returns (bytes memory creationBytecode);
 
-    /// Gets the deployed bytecode from an artifact file. Takes in the relative path to the json file.
-    function getDeployedCode(
-        string calldata artifactPath
-    ) external view returns (bytes memory runtimeBytecode);
+    /// Gets the deployed bytecode from an artifact file. Takes in the relative path to the json
+    /// file.
+    function getDeployedCode(string calldata artifactPath)
+        external
+        view
+        returns (bytes memory runtimeBytecode);
 
     /// Returns true if the path exists on disk and is pointing at a directory, else returns false.
     function isDir(string calldata path) external returns (bool result);
 
-    /// Returns true if the path exists on disk and is pointing at a regular file, else returns false.
+    /// Returns true if the path exists on disk and is pointing at a regular file, else returns
+    /// false.
     function isFile(string calldata path) external returns (bool result);
 
     /// Get the path of the current project root.
     function projectRoot() external view returns (string memory path);
 
     /// Reads the directory at the given path recursively, up to `maxDepth`.
-    /// `maxDepth` defaults to 1, meaning only the direct children of the given directory will be returned.
+    /// `maxDepth` defaults to 1, meaning only the direct children of the given directory will be
+    /// returned.
     /// Follows symbolic links if `followLinks` is true.
     function readDir(string calldata path) external view returns (DirEntry[] memory entries);
 
@@ -560,14 +668,20 @@ interface VmSafe {
     function readDir(
         string calldata path,
         uint64 maxDepth
-    ) external view returns (DirEntry[] memory entries);
+    )
+        external
+        view
+        returns (DirEntry[] memory entries);
 
     /// See `readDir(string)`.
     function readDir(
         string calldata path,
         uint64 maxDepth,
         bool followLinks
-    ) external view returns (DirEntry[] memory entries);
+    )
+        external
+        view
+        returns (DirEntry[] memory entries);
 
     /// Reads the entire content of file to string. `path` is relative to the project root.
     function readFile(string calldata path) external view returns (string memory data);
@@ -579,13 +693,15 @@ interface VmSafe {
     function readLine(string calldata path) external view returns (string memory line);
 
     /// Reads a symbolic link, returning the path that the link points to.
-    /// This cheatcode will revert in the following situations, but is not limited to just these cases:
+    /// This cheatcode will revert in the following situations, but is not limited to just these
+    /// cases:
     /// - `path` is not a symbolic link.
     /// - `path` does not exist.
     function readLink(string calldata linkPath) external view returns (string memory targetPath);
 
     /// Removes a directory at the provided path.
-    /// This cheatcode will revert in the following situations, but is not limited to just these cases:
+    /// This cheatcode will revert in the following situations, but is not limited to just these
+    /// cases:
     /// - `path` doesn't exist.
     /// - `path` isn't a directory.
     /// - User lacks permissions to modify `path`.
@@ -594,7 +710,8 @@ interface VmSafe {
     function removeDir(string calldata path, bool recursive) external;
 
     /// Removes a file from the filesystem.
-    /// This cheatcode will revert in the following situations, but is not limited to just these cases:
+    /// This cheatcode will revert in the following situations, but is not limited to just these
+    /// cases:
     /// - `path` points to a directory.
     /// - The file doesn't exist.
     /// - The user lacks permissions to remove the file.
@@ -607,11 +724,13 @@ interface VmSafe {
     /// Returns the time since unix epoch in milliseconds.
     function unixTime() external returns (uint256 milliseconds);
 
-    /// Writes data to file, creating a file if it does not exist, and entirely replacing its contents if it does.
+    /// Writes data to file, creating a file if it does not exist, and entirely replacing its
+    /// contents if it does.
     /// `path` is relative to the project root.
     function writeFile(string calldata path, string calldata data) external;
 
-    /// Writes binary data to a file, creating a file if it does not exist, and entirely replacing its contents if it does.
+    /// Writes binary data to a file, creating a file if it does not exist, and entirely replacing
+    /// its contents if it does.
     /// `path` is relative to the project root.
     function writeFileBinary(string calldata path, bytes calldata data) external;
 
@@ -628,85 +747,136 @@ interface VmSafe {
     function parseJsonAddress(
         string calldata json,
         string calldata key
-    ) external pure returns (address);
+    )
+        external
+        pure
+        returns (address);
 
     /// Parses a string of JSON data at `key` and coerces it to `address[]`.
     function parseJsonAddressArray(
         string calldata json,
         string calldata key
-    ) external pure returns (address[] memory);
+    )
+        external
+        pure
+        returns (address[] memory);
 
     /// Parses a string of JSON data at `key` and coerces it to `bool`.
-    function parseJsonBool(string calldata json, string calldata key) external pure returns (bool);
+    function parseJsonBool(
+        string calldata json,
+        string calldata key
+    )
+        external
+        pure
+        returns (bool);
 
     /// Parses a string of JSON data at `key` and coerces it to `bool[]`.
     function parseJsonBoolArray(
         string calldata json,
         string calldata key
-    ) external pure returns (bool[] memory);
+    )
+        external
+        pure
+        returns (bool[] memory);
 
     /// Parses a string of JSON data at `key` and coerces it to `bytes`.
     function parseJsonBytes(
         string calldata json,
         string calldata key
-    ) external pure returns (bytes memory);
+    )
+        external
+        pure
+        returns (bytes memory);
 
     /// Parses a string of JSON data at `key` and coerces it to `bytes32`.
     function parseJsonBytes32(
         string calldata json,
         string calldata key
-    ) external pure returns (bytes32);
+    )
+        external
+        pure
+        returns (bytes32);
 
     /// Parses a string of JSON data at `key` and coerces it to `bytes32[]`.
     function parseJsonBytes32Array(
         string calldata json,
         string calldata key
-    ) external pure returns (bytes32[] memory);
+    )
+        external
+        pure
+        returns (bytes32[] memory);
 
     /// Parses a string of JSON data at `key` and coerces it to `bytes[]`.
     function parseJsonBytesArray(
         string calldata json,
         string calldata key
-    ) external pure returns (bytes[] memory);
+    )
+        external
+        pure
+        returns (bytes[] memory);
 
     /// Parses a string of JSON data at `key` and coerces it to `int256`.
-    function parseJsonInt(string calldata json, string calldata key) external pure returns (int256);
+    function parseJsonInt(
+        string calldata json,
+        string calldata key
+    )
+        external
+        pure
+        returns (int256);
 
     /// Parses a string of JSON data at `key` and coerces it to `int256[]`.
     function parseJsonIntArray(
         string calldata json,
         string calldata key
-    ) external pure returns (int256[] memory);
+    )
+        external
+        pure
+        returns (int256[] memory);
 
     /// Returns an array of all the keys in a JSON object.
     function parseJsonKeys(
         string calldata json,
         string calldata key
-    ) external pure returns (string[] memory keys);
+    )
+        external
+        pure
+        returns (string[] memory keys);
 
     /// Parses a string of JSON data at `key` and coerces it to `string`.
     function parseJsonString(
         string calldata json,
         string calldata key
-    ) external pure returns (string memory);
+    )
+        external
+        pure
+        returns (string memory);
 
     /// Parses a string of JSON data at `key` and coerces it to `string[]`.
     function parseJsonStringArray(
         string calldata json,
         string calldata key
-    ) external pure returns (string[] memory);
+    )
+        external
+        pure
+        returns (string[] memory);
 
     /// Parses a string of JSON data at `key` and coerces it to `uint256`.
     function parseJsonUint(
         string calldata json,
         string calldata key
-    ) external pure returns (uint256);
+    )
+        external
+        pure
+        returns (uint256);
 
     /// Parses a string of JSON data at `key` and coerces it to `uint256[]`.
     function parseJsonUintArray(
         string calldata json,
         string calldata key
-    ) external pure returns (uint256[] memory);
+    )
+        external
+        pure
+        returns (uint256[] memory);
 
     /// ABI-encodes a JSON object.
     function parseJson(string calldata json) external pure returns (bytes memory abiEncodedData);
@@ -715,123 +885,160 @@ interface VmSafe {
     function parseJson(
         string calldata json,
         string calldata key
-    ) external pure returns (bytes memory abiEncodedData);
+    )
+        external
+        pure
+        returns (bytes memory abiEncodedData);
 
     /// See `serializeJson`.
     function serializeAddress(
         string calldata objectKey,
         string calldata valueKey,
         address value
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeAddress(
         string calldata objectKey,
         string calldata valueKey,
         address[] calldata values
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeBool(
         string calldata objectKey,
         string calldata valueKey,
         bool value
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeBool(
         string calldata objectKey,
         string calldata valueKey,
         bool[] calldata values
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeBytes32(
         string calldata objectKey,
         string calldata valueKey,
         bytes32 value
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeBytes32(
         string calldata objectKey,
         string calldata valueKey,
         bytes32[] calldata values
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeBytes(
         string calldata objectKey,
         string calldata valueKey,
         bytes calldata value
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeBytes(
         string calldata objectKey,
         string calldata valueKey,
         bytes[] calldata values
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeInt(
         string calldata objectKey,
         string calldata valueKey,
         int256 value
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeInt(
         string calldata objectKey,
         string calldata valueKey,
         int256[] calldata values
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
-    /// Serializes a key and value to a JSON object stored in-memory that can be later written to a file.
+    /// Serializes a key and value to a JSON object stored in-memory that can be later written to a
+    /// file.
     /// Returns the stringified version of the specific JSON file up to that moment.
     function serializeJson(
         string calldata objectKey,
         string calldata value
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeString(
         string calldata objectKey,
         string calldata valueKey,
         string calldata value
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeString(
         string calldata objectKey,
         string calldata valueKey,
         string[] calldata values
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeUint(
         string calldata objectKey,
         string calldata valueKey,
         uint256 value
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// See `serializeJson`.
     function serializeUint(
         string calldata objectKey,
         string calldata valueKey,
         uint256[] calldata values
-    ) external returns (string memory json);
+    )
+        external
+        returns (string memory json);
 
     /// Write a serialized JSON object to a file. If the file exists, it will be overwritten.
     function writeJson(string calldata json, string calldata path) external;
 
-    /// Write a serialized JSON object to an **existing** JSON file, replacing a value with key = <value_key.>
-    /// This is useful to replace a specific value of a JSON file, without having to parse the entire thing.
+    /// Write a serialized JSON object to an **existing** JSON file, replacing a value with key =
+    /// <value_key.>
+    /// This is useful to replace a specific value of a JSON file, without having to parse the
+    /// entire thing.
     function writeJson(
         string calldata json,
         string calldata path,
         string calldata valueKey
-    ) external;
+    )
+        external;
 
     // ======== Scripting ========
 
@@ -865,43 +1072,56 @@ interface VmSafe {
     // ======== String ========
 
     /// Parses the given `string` into an `address`.
-    function parseAddress(
-        string calldata stringifiedValue
-    ) external pure returns (address parsedValue);
+    function parseAddress(string calldata stringifiedValue)
+        external
+        pure
+        returns (address parsedValue);
 
     /// Parses the given `string` into a `bool`.
     function parseBool(string calldata stringifiedValue) external pure returns (bool parsedValue);
 
     /// Parses the given `string` into `bytes`.
-    function parseBytes(
-        string calldata stringifiedValue
-    ) external pure returns (bytes memory parsedValue);
+    function parseBytes(string calldata stringifiedValue)
+        external
+        pure
+        returns (bytes memory parsedValue);
 
     /// Parses the given `string` into a `bytes32`.
-    function parseBytes32(
-        string calldata stringifiedValue
-    ) external pure returns (bytes32 parsedValue);
+    function parseBytes32(string calldata stringifiedValue)
+        external
+        pure
+        returns (bytes32 parsedValue);
 
     /// Parses the given `string` into a `int256`.
-    function parseInt(string calldata stringifiedValue) external pure returns (int256 parsedValue);
+    function parseInt(string calldata stringifiedValue)
+        external
+        pure
+        returns (int256 parsedValue);
 
     /// Parses the given `string` into a `uint256`.
-    function parseUint(
-        string calldata stringifiedValue
-    ) external pure returns (uint256 parsedValue);
+    function parseUint(string calldata stringifiedValue)
+        external
+        pure
+        returns (uint256 parsedValue);
 
     /// Replaces occurrences of `from` in the given `string` with `to`.
     function replace(
         string calldata input,
         string calldata from,
         string calldata to
-    ) external pure returns (string memory output);
+    )
+        external
+        pure
+        returns (string memory output);
 
     /// Splits the given `string` into an array of strings divided by the `delimiter`.
     function split(
         string calldata input,
         string calldata delimiter
-    ) external pure returns (string[] memory outputs);
+    )
+        external
+        pure
+        returns (string[] memory outputs);
 
     /// Converts the given `string` value to Lowercase.
     function toLowercase(string calldata input) external pure returns (string memory output);
@@ -910,7 +1130,10 @@ interface VmSafe {
     function toString(address value) external pure returns (string memory stringifiedValue);
 
     /// Converts the given value to a `string`.
-    function toString(bytes calldata value) external pure returns (string memory stringifiedValue);
+    function toString(bytes calldata value)
+        external
+        pure
+        returns (string memory stringifiedValue);
 
     /// Converts the given value to a `string`.
     function toString(bytes32 value) external pure returns (string memory stringifiedValue);
@@ -939,17 +1162,22 @@ interface VmSafe {
         uint256 right,
         uint256 maxDelta,
         uint256 decimals
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `uint256` values. Expects difference to be less than or equal to `maxDelta`.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertApproxEqAbsDecimal(
         uint256 left,
         uint256 right,
         uint256 maxDelta,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `int256` values. Expects difference to be less than or equal to `maxDelta`.
     /// Formats values with decimals in failure message.
@@ -958,17 +1186,22 @@ interface VmSafe {
         int256 right,
         uint256 maxDelta,
         uint256 decimals
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `int256` values. Expects difference to be less than or equal to `maxDelta`.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertApproxEqAbsDecimal(
         int256 left,
         int256 right,
         uint256 maxDelta,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `uint256` values. Expects difference to be less than or equal to `maxDelta`.
     function assertApproxEqAbs(uint256 left, uint256 right, uint256 maxDelta) external pure;
@@ -980,7 +1213,9 @@ interface VmSafe {
         uint256 right,
         uint256 maxDelta,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `int256` values. Expects difference to be less than or equal to `maxDelta`.
     function assertApproxEqAbs(int256 left, int256 right, uint256 maxDelta) external pure;
@@ -992,9 +1227,12 @@ interface VmSafe {
         int256 right,
         uint256 maxDelta,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Compares two `uint256` values. Expects relative difference in percents to be less than or equal to `maxPercentDelta`.
+    /// Compares two `uint256` values. Expects relative difference in percents to be less than or
+    /// equal to `maxPercentDelta`.
     /// `maxPercentDelta` is an 18 decimal fixed point number, where 1e18 == 100%
     /// Formats values with decimals in failure message.
     function assertApproxEqRelDecimal(
@@ -1002,20 +1240,27 @@ interface VmSafe {
         uint256 right,
         uint256 maxPercentDelta,
         uint256 decimals
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Compares two `uint256` values. Expects relative difference in percents to be less than or equal to `maxPercentDelta`.
+    /// Compares two `uint256` values. Expects relative difference in percents to be less than or
+    /// equal to `maxPercentDelta`.
     /// `maxPercentDelta` is an 18 decimal fixed point number, where 1e18 == 100%
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertApproxEqRelDecimal(
         uint256 left,
         uint256 right,
         uint256 maxPercentDelta,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Compares two `int256` values. Expects relative difference in percents to be less than or equal to `maxPercentDelta`.
+    /// Compares two `int256` values. Expects relative difference in percents to be less than or
+    /// equal to `maxPercentDelta`.
     /// `maxPercentDelta` is an 18 decimal fixed point number, where 1e18 == 100%
     /// Formats values with decimals in failure message.
     function assertApproxEqRelDecimal(
@@ -1023,24 +1268,38 @@ interface VmSafe {
         int256 right,
         uint256 maxPercentDelta,
         uint256 decimals
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Compares two `int256` values. Expects relative difference in percents to be less than or equal to `maxPercentDelta`.
+    /// Compares two `int256` values. Expects relative difference in percents to be less than or
+    /// equal to `maxPercentDelta`.
     /// `maxPercentDelta` is an 18 decimal fixed point number, where 1e18 == 100%
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertApproxEqRelDecimal(
         int256 left,
         int256 right,
         uint256 maxPercentDelta,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Compares two `uint256` values. Expects relative difference in percents to be less than or equal to `maxPercentDelta`.
+    /// Compares two `uint256` values. Expects relative difference in percents to be less than or
+    /// equal to `maxPercentDelta`.
     /// `maxPercentDelta` is an 18 decimal fixed point number, where 1e18 == 100%
-    function assertApproxEqRel(uint256 left, uint256 right, uint256 maxPercentDelta) external pure;
+    function assertApproxEqRel(
+        uint256 left,
+        uint256 right,
+        uint256 maxPercentDelta
+    )
+        external
+        pure;
 
-    /// Compares two `uint256` values. Expects relative difference in percents to be less than or equal to `maxPercentDelta`.
+    /// Compares two `uint256` values. Expects relative difference in percents to be less than or
+    /// equal to `maxPercentDelta`.
     /// `maxPercentDelta` is an 18 decimal fixed point number, where 1e18 == 100%
     /// Includes error message into revert string on failure.
     function assertApproxEqRel(
@@ -1048,13 +1307,17 @@ interface VmSafe {
         uint256 right,
         uint256 maxPercentDelta,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Compares two `int256` values. Expects relative difference in percents to be less than or equal to `maxPercentDelta`.
+    /// Compares two `int256` values. Expects relative difference in percents to be less than or
+    /// equal to `maxPercentDelta`.
     /// `maxPercentDelta` is an 18 decimal fixed point number, where 1e18 == 100%
     function assertApproxEqRel(int256 left, int256 right, uint256 maxPercentDelta) external pure;
 
-    /// Compares two `int256` values. Expects relative difference in percents to be less than or equal to `maxPercentDelta`.
+    /// Compares two `int256` values. Expects relative difference in percents to be less than or
+    /// equal to `maxPercentDelta`.
     /// `maxPercentDelta` is an 18 decimal fixed point number, where 1e18 == 100%
     /// Includes error message into revert string on failure.
     function assertApproxEqRel(
@@ -1062,87 +1325,113 @@ interface VmSafe {
         int256 right,
         uint256 maxPercentDelta,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Asserts that two `uint256` values are equal, formatting them with decimals in failure message.
+    /// Asserts that two `uint256` values are equal, formatting them with decimals in failure
+    /// message.
     function assertEqDecimal(uint256 left, uint256 right, uint256 decimals) external pure;
 
-    /// Asserts that two `uint256` values are equal, formatting them with decimals in failure message.
+    /// Asserts that two `uint256` values are equal, formatting them with decimals in failure
+    /// message.
     /// Includes error message into revert string on failure.
     function assertEqDecimal(
         uint256 left,
         uint256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Asserts that two `int256` values are equal, formatting them with decimals in failure message.
+    /// Asserts that two `int256` values are equal, formatting them with decimals in failure
+    /// message.
     function assertEqDecimal(int256 left, int256 right, uint256 decimals) external pure;
 
-    /// Asserts that two `int256` values are equal, formatting them with decimals in failure message.
+    /// Asserts that two `int256` values are equal, formatting them with decimals in failure
+    /// message.
     /// Includes error message into revert string on failure.
     function assertEqDecimal(
         int256 left,
         int256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two `bool` values are equal.
     function assertEq(bool left, bool right) external pure;
 
-    /// Asserts that two `bool` values are equal and includes error message into revert string on failure.
+    /// Asserts that two `bool` values are equal and includes error message into revert string on
+    /// failure.
     function assertEq(bool left, bool right, string calldata error) external pure;
 
     /// Asserts that two `string` values are equal.
     function assertEq(string calldata left, string calldata right) external pure;
 
-    /// Asserts that two `string` values are equal and includes error message into revert string on failure.
+    /// Asserts that two `string` values are equal and includes error message into revert string on
+    /// failure.
     function assertEq(
         string calldata left,
         string calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two `bytes` values are equal.
     function assertEq(bytes calldata left, bytes calldata right) external pure;
 
-    /// Asserts that two `bytes` values are equal and includes error message into revert string on failure.
+    /// Asserts that two `bytes` values are equal and includes error message into revert string on
+    /// failure.
     function assertEq(
         bytes calldata left,
         bytes calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `bool` values are equal.
     function assertEq(bool[] calldata left, bool[] calldata right) external pure;
 
-    /// Asserts that two arrays of `bool` values are equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `bool` values are equal and includes error message into revert
+    /// string on failure.
     function assertEq(
         bool[] calldata left,
         bool[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `uint256 values are equal.
     function assertEq(uint256[] calldata left, uint256[] calldata right) external pure;
 
-    /// Asserts that two arrays of `uint256` values are equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `uint256` values are equal and includes error message into revert
+    /// string on failure.
     function assertEq(
         uint256[] calldata left,
         uint256[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `int256` values are equal.
     function assertEq(int256[] calldata left, int256[] calldata right) external pure;
 
-    /// Asserts that two arrays of `int256` values are equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `int256` values are equal and includes error message into revert
+    /// string on failure.
     function assertEq(
         int256[] calldata left,
         int256[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two `uint256` values are equal.
     function assertEq(uint256 left, uint256 right) external pure;
@@ -1150,68 +1439,85 @@ interface VmSafe {
     /// Asserts that two arrays of `address` values are equal.
     function assertEq(address[] calldata left, address[] calldata right) external pure;
 
-    /// Asserts that two arrays of `address` values are equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `address` values are equal and includes error message into revert
+    /// string on failure.
     function assertEq(
         address[] calldata left,
         address[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `bytes32` values are equal.
     function assertEq(bytes32[] calldata left, bytes32[] calldata right) external pure;
 
-    /// Asserts that two arrays of `bytes32` values are equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `bytes32` values are equal and includes error message into revert
+    /// string on failure.
     function assertEq(
         bytes32[] calldata left,
         bytes32[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `string` values are equal.
     function assertEq(string[] calldata left, string[] calldata right) external pure;
 
-    /// Asserts that two arrays of `string` values are equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `string` values are equal and includes error message into revert
+    /// string on failure.
     function assertEq(
         string[] calldata left,
         string[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `bytes` values are equal.
     function assertEq(bytes[] calldata left, bytes[] calldata right) external pure;
 
-    /// Asserts that two arrays of `bytes` values are equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `bytes` values are equal and includes error message into revert
+    /// string on failure.
     function assertEq(
         bytes[] calldata left,
         bytes[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Asserts that two `uint256` values are equal and includes error message into revert string on failure.
+    /// Asserts that two `uint256` values are equal and includes error message into revert string on
+    /// failure.
     function assertEq(uint256 left, uint256 right, string calldata error) external pure;
 
     /// Asserts that two `int256` values are equal.
     function assertEq(int256 left, int256 right) external pure;
 
-    /// Asserts that two `int256` values are equal and includes error message into revert string on failure.
+    /// Asserts that two `int256` values are equal and includes error message into revert string on
+    /// failure.
     function assertEq(int256 left, int256 right, string calldata error) external pure;
 
     /// Asserts that two `address` values are equal.
     function assertEq(address left, address right) external pure;
 
-    /// Asserts that two `address` values are equal and includes error message into revert string on failure.
+    /// Asserts that two `address` values are equal and includes error message into revert string on
+    /// failure.
     function assertEq(address left, address right, string calldata error) external pure;
 
     /// Asserts that two `bytes32` values are equal.
     function assertEq(bytes32 left, bytes32 right) external pure;
 
-    /// Asserts that two `bytes32` values are equal and includes error message into revert string on failure.
+    /// Asserts that two `bytes32` values are equal and includes error message into revert string on
+    /// failure.
     function assertEq(bytes32 left, bytes32 right, string calldata error) external pure;
 
     /// Asserts that the given condition is false.
     function assertFalse(bool condition) external pure;
 
-    /// Asserts that the given condition is false and includes error message into revert string on failure.
+    /// Asserts that the given condition is false and includes error message into revert string on
+    /// failure.
     function assertFalse(bool condition, string calldata error) external pure;
 
     /// Compares two `uint256` values. Expects first value to be greater than or equal to second.
@@ -1219,26 +1525,32 @@ interface VmSafe {
     function assertGeDecimal(uint256 left, uint256 right, uint256 decimals) external pure;
 
     /// Compares two `uint256` values. Expects first value to be greater than or equal to second.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertGeDecimal(
         uint256 left,
         uint256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `int256` values. Expects first value to be greater than or equal to second.
     /// Formats values with decimals in failure message.
     function assertGeDecimal(int256 left, int256 right, uint256 decimals) external pure;
 
     /// Compares two `int256` values. Expects first value to be greater than or equal to second.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertGeDecimal(
         int256 left,
         int256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `uint256` values. Expects first value to be greater than or equal to second.
     function assertGe(uint256 left, uint256 right) external pure;
@@ -1259,26 +1571,32 @@ interface VmSafe {
     function assertGtDecimal(uint256 left, uint256 right, uint256 decimals) external pure;
 
     /// Compares two `uint256` values. Expects first value to be greater than second.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertGtDecimal(
         uint256 left,
         uint256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `int256` values. Expects first value to be greater than second.
     /// Formats values with decimals in failure message.
     function assertGtDecimal(int256 left, int256 right, uint256 decimals) external pure;
 
     /// Compares two `int256` values. Expects first value to be greater than second.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertGtDecimal(
         int256 left,
         int256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `uint256` values. Expects first value to be greater than second.
     function assertGt(uint256 left, uint256 right) external pure;
@@ -1299,26 +1617,32 @@ interface VmSafe {
     function assertLeDecimal(uint256 left, uint256 right, uint256 decimals) external pure;
 
     /// Compares two `uint256` values. Expects first value to be less than or equal to second.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertLeDecimal(
         uint256 left,
         uint256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `int256` values. Expects first value to be less than or equal to second.
     /// Formats values with decimals in failure message.
     function assertLeDecimal(int256 left, int256 right, uint256 decimals) external pure;
 
     /// Compares two `int256` values. Expects first value to be less than or equal to second.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertLeDecimal(
         int256 left,
         int256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `uint256` values. Expects first value to be less than or equal to second.
     function assertLe(uint256 left, uint256 right) external pure;
@@ -1339,26 +1663,32 @@ interface VmSafe {
     function assertLtDecimal(uint256 left, uint256 right, uint256 decimals) external pure;
 
     /// Compares two `uint256` values. Expects first value to be less than second.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertLtDecimal(
         uint256 left,
         uint256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `int256` values. Expects first value to be less than second.
     /// Formats values with decimals in failure message.
     function assertLtDecimal(int256 left, int256 right, uint256 decimals) external pure;
 
     /// Compares two `int256` values. Expects first value to be less than second.
-    /// Formats values with decimals in failure message. Includes error message into revert string on failure.
+    /// Formats values with decimals in failure message. Includes error message into revert string
+    /// on failure.
     function assertLtDecimal(
         int256 left,
         int256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Compares two `uint256` values. Expects first value to be less than second.
     function assertLt(uint256 left, uint256 right) external pure;
@@ -1374,85 +1704,109 @@ interface VmSafe {
     /// Includes error message into revert string on failure.
     function assertLt(int256 left, int256 right, string calldata error) external pure;
 
-    /// Asserts that two `uint256` values are not equal, formatting them with decimals in failure message.
+    /// Asserts that two `uint256` values are not equal, formatting them with decimals in failure
+    /// message.
     function assertNotEqDecimal(uint256 left, uint256 right, uint256 decimals) external pure;
 
-    /// Asserts that two `uint256` values are not equal, formatting them with decimals in failure message.
+    /// Asserts that two `uint256` values are not equal, formatting them with decimals in failure
+    /// message.
     /// Includes error message into revert string on failure.
     function assertNotEqDecimal(
         uint256 left,
         uint256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Asserts that two `int256` values are not equal, formatting them with decimals in failure message.
+    /// Asserts that two `int256` values are not equal, formatting them with decimals in failure
+    /// message.
     function assertNotEqDecimal(int256 left, int256 right, uint256 decimals) external pure;
 
-    /// Asserts that two `int256` values are not equal, formatting them with decimals in failure message.
+    /// Asserts that two `int256` values are not equal, formatting them with decimals in failure
+    /// message.
     /// Includes error message into revert string on failure.
     function assertNotEqDecimal(
         int256 left,
         int256 right,
         uint256 decimals,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two `bool` values are not equal.
     function assertNotEq(bool left, bool right) external pure;
 
-    /// Asserts that two `bool` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two `bool` values are not equal and includes error message into revert string
+    /// on failure.
     function assertNotEq(bool left, bool right, string calldata error) external pure;
 
     /// Asserts that two `string` values are not equal.
     function assertNotEq(string calldata left, string calldata right) external pure;
 
-    /// Asserts that two `string` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two `string` values are not equal and includes error message into revert string
+    /// on failure.
     function assertNotEq(
         string calldata left,
         string calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two `bytes` values are not equal.
     function assertNotEq(bytes calldata left, bytes calldata right) external pure;
 
-    /// Asserts that two `bytes` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two `bytes` values are not equal and includes error message into revert string
+    /// on failure.
     function assertNotEq(
         bytes calldata left,
         bytes calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `bool` values are not equal.
     function assertNotEq(bool[] calldata left, bool[] calldata right) external pure;
 
-    /// Asserts that two arrays of `bool` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `bool` values are not equal and includes error message into
+    /// revert string on failure.
     function assertNotEq(
         bool[] calldata left,
         bool[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `uint256` values are not equal.
     function assertNotEq(uint256[] calldata left, uint256[] calldata right) external pure;
 
-    /// Asserts that two arrays of `uint256` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `uint256` values are not equal and includes error message into
+    /// revert string on failure.
     function assertNotEq(
         uint256[] calldata left,
         uint256[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `int256` values are not equal.
     function assertNotEq(int256[] calldata left, int256[] calldata right) external pure;
 
-    /// Asserts that two arrays of `int256` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `int256` values are not equal and includes error message into
+    /// revert string on failure.
     function assertNotEq(
         int256[] calldata left,
         int256[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two `uint256` values are not equal.
     function assertNotEq(uint256 left, uint256 right) external pure;
@@ -1460,68 +1814,85 @@ interface VmSafe {
     /// Asserts that two arrays of `address` values are not equal.
     function assertNotEq(address[] calldata left, address[] calldata right) external pure;
 
-    /// Asserts that two arrays of `address` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `address` values are not equal and includes error message into
+    /// revert string on failure.
     function assertNotEq(
         address[] calldata left,
         address[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `bytes32` values are not equal.
     function assertNotEq(bytes32[] calldata left, bytes32[] calldata right) external pure;
 
-    /// Asserts that two arrays of `bytes32` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `bytes32` values are not equal and includes error message into
+    /// revert string on failure.
     function assertNotEq(
         bytes32[] calldata left,
         bytes32[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `string` values are not equal.
     function assertNotEq(string[] calldata left, string[] calldata right) external pure;
 
-    /// Asserts that two arrays of `string` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `string` values are not equal and includes error message into
+    /// revert string on failure.
     function assertNotEq(
         string[] calldata left,
         string[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
     /// Asserts that two arrays of `bytes` values are not equal.
     function assertNotEq(bytes[] calldata left, bytes[] calldata right) external pure;
 
-    /// Asserts that two arrays of `bytes` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two arrays of `bytes` values are not equal and includes error message into
+    /// revert string on failure.
     function assertNotEq(
         bytes[] calldata left,
         bytes[] calldata right,
         string calldata error
-    ) external pure;
+    )
+        external
+        pure;
 
-    /// Asserts that two `uint256` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two `uint256` values are not equal and includes error message into revert
+    /// string on failure.
     function assertNotEq(uint256 left, uint256 right, string calldata error) external pure;
 
     /// Asserts that two `int256` values are not equal.
     function assertNotEq(int256 left, int256 right) external pure;
 
-    /// Asserts that two `int256` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two `int256` values are not equal and includes error message into revert string
+    /// on failure.
     function assertNotEq(int256 left, int256 right, string calldata error) external pure;
 
     /// Asserts that two `address` values are not equal.
     function assertNotEq(address left, address right) external pure;
 
-    /// Asserts that two `address` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two `address` values are not equal and includes error message into revert
+    /// string on failure.
     function assertNotEq(address left, address right, string calldata error) external pure;
 
     /// Asserts that two `bytes32` values are not equal.
     function assertNotEq(bytes32 left, bytes32 right) external pure;
 
-    /// Asserts that two `bytes32` values are not equal and includes error message into revert string on failure.
+    /// Asserts that two `bytes32` values are not equal and includes error message into revert
+    /// string on failure.
     function assertNotEq(bytes32 left, bytes32 right, string calldata error) external pure;
 
     /// Asserts that the given condition is true.
     function assertTrue(bool condition) external pure;
 
-    /// Asserts that the given condition is true and includes error message into revert string on failure.
+    /// Asserts that the given condition is true and includes error message into revert string on
+    /// failure.
     function assertTrue(bool condition, string calldata error) external pure;
 
     /// If the condition is false, discard this run's fuzz inputs and generate new ones.
@@ -1552,35 +1923,54 @@ interface VmSafe {
         bytes32 salt,
         bytes32 initCodeHash,
         address deployer
-    ) external pure returns (address);
+    )
+        external
+        pure
+        returns (address);
 
     /// Compute the address of a contract created with CREATE2 using the default CREATE2 deployer.
     function computeCreate2Address(
         bytes32 salt,
         bytes32 initCodeHash
-    ) external pure returns (address);
+    )
+        external
+        pure
+        returns (address);
 
     /// Compute the address a contract will be deployed at for a given deployer address and nonce.
-    function computeCreateAddress(address deployer, uint256 nonce) external pure returns (address);
+    function computeCreateAddress(
+        address deployer,
+        uint256 nonce
+    )
+        external
+        pure
+        returns (address);
 
-    /// Derives a private key from the name, labels the account with that name, and returns the wallet.
+    /// Derives a private key from the name, labels the account with that name, and returns the
+    /// wallet.
     function createWallet(string calldata walletLabel) external returns (Wallet memory wallet);
 
     /// Generates a wallet from the private key and returns the wallet.
     function createWallet(uint256 privateKey) external returns (Wallet memory wallet);
 
-    /// Generates a wallet from the private key, labels the account with that name, and returns the wallet.
+    /// Generates a wallet from the private key, labels the account with that name, and returns the
+    /// wallet.
     function createWallet(
         uint256 privateKey,
         string calldata walletLabel
-    ) external returns (Wallet memory wallet);
+    )
+        external
+        returns (Wallet memory wallet);
 
     /// Derive a private key from a provided mnenomic string (or mnenomic file path)
     /// at the derivation path `m/44'/60'/0'/0/{index}`.
     function deriveKey(
         string calldata mnemonic,
         uint32 index
-    ) external pure returns (uint256 privateKey);
+    )
+        external
+        pure
+        returns (uint256 privateKey);
 
     /// Derive a private key from a provided mnenomic string (or mnenomic file path)
     /// at `{derivationPath}{index}`.
@@ -1588,24 +1978,35 @@ interface VmSafe {
         string calldata mnemonic,
         string calldata derivationPath,
         uint32 index
-    ) external pure returns (uint256 privateKey);
+    )
+        external
+        pure
+        returns (uint256 privateKey);
 
-    /// Derive a private key from a provided mnenomic string (or mnenomic file path) in the specified language
+    /// Derive a private key from a provided mnenomic string (or mnenomic file path) in the
+    /// specified language
     /// at the derivation path `m/44'/60'/0'/0/{index}`.
     function deriveKey(
         string calldata mnemonic,
         uint32 index,
         string calldata language
-    ) external pure returns (uint256 privateKey);
+    )
+        external
+        pure
+        returns (uint256 privateKey);
 
-    /// Derive a private key from a provided mnenomic string (or mnenomic file path) in the specified language
+    /// Derive a private key from a provided mnenomic string (or mnenomic file path) in the
+    /// specified language
     /// at `{derivationPath}{index}`.
     function deriveKey(
         string calldata mnemonic,
         string calldata derivationPath,
         uint32 index,
         string calldata language
-    ) external pure returns (uint256 privateKey);
+    )
+        external
+        pure
+        returns (uint256 privateKey);
 
     /// Gets the label for the specified address.
     function getLabel(address account) external view returns (string memory currentLabel);
@@ -1623,7 +2024,9 @@ interface VmSafe {
     function sign(
         Wallet calldata wallet,
         bytes32 digest
-    ) external returns (uint8 v, bytes32 r, bytes32 s);
+    )
+        external
+        returns (uint8 v, bytes32 r, bytes32 s);
 
     /// Encodes a `bytes` value to a base64url string.
     function toBase64URL(bytes calldata data) external pure returns (string memory);
@@ -1658,37 +2061,52 @@ interface Vm is VmSafe {
     /// Sets `block.coinbase`.
     function coinbase(address newCoinbase) external;
 
-    /// Creates a new fork with the given endpoint and the _latest_ block and returns the identifier of the fork.
+    /// Creates a new fork with the given endpoint and the _latest_ block and returns the identifier
+    /// of the fork.
     function createFork(string calldata urlOrAlias) external returns (uint256 forkId);
 
     /// Creates a new fork with the given endpoint and block and returns the identifier of the fork.
     function createFork(
         string calldata urlOrAlias,
         uint256 blockNumber
-    ) external returns (uint256 forkId);
+    )
+        external
+        returns (uint256 forkId);
 
-    /// Creates a new fork with the given endpoint and at the block the given transaction was mined in,
-    /// replays all transaction mined in the block before the transaction, and returns the identifier of the fork.
+    /// Creates a new fork with the given endpoint and at the block the given transaction was mined
+    /// in,
+    /// replays all transaction mined in the block before the transaction, and returns the
+    /// identifier of the fork.
     function createFork(
         string calldata urlOrAlias,
         bytes32 txHash
-    ) external returns (uint256 forkId);
+    )
+        external
+        returns (uint256 forkId);
 
-    /// Creates and also selects a new fork with the given endpoint and the latest block and returns the identifier of the fork.
+    /// Creates and also selects a new fork with the given endpoint and the latest block and returns
+    /// the identifier of the fork.
     function createSelectFork(string calldata urlOrAlias) external returns (uint256 forkId);
 
-    /// Creates and also selects a new fork with the given endpoint and block and returns the identifier of the fork.
+    /// Creates and also selects a new fork with the given endpoint and block and returns the
+    /// identifier of the fork.
     function createSelectFork(
         string calldata urlOrAlias,
         uint256 blockNumber
-    ) external returns (uint256 forkId);
+    )
+        external
+        returns (uint256 forkId);
 
-    /// Creates and also selects new fork with the given endpoint and at the block the given transaction was mined in,
-    /// replays all transaction mined in the block before the transaction, returns the identifier of the fork.
+    /// Creates and also selects new fork with the given endpoint and at the block the given
+    /// transaction was mined in,
+    /// replays all transaction mined in the block before the transaction, returns the identifier of
+    /// the fork.
     function createSelectFork(
         string calldata urlOrAlias,
         bytes32 txHash
-    ) external returns (uint256 forkId);
+    )
+        external
+        returns (uint256 forkId);
 
     /// Sets an address' balance.
     function deal(address account, uint256 newBalance) external;
@@ -1722,7 +2140,8 @@ interface Vm is VmSafe {
     /// Load a genesis JSON file's `allocs` into the in-memory revm state.
     function loadAllocs(string calldata pathToAllocsJson) external;
 
-    /// Marks that the account(s) should use persistent storage across fork swaps in a multifork setup
+    /// Marks that the account(s) should use persistent storage across fork swaps in a multifork
+    /// setup
     /// Meaning, changes made to the state of this account will be kept when switching forks.
     function makePersistent(address account) external;
 
@@ -1740,7 +2159,8 @@ interface Vm is VmSafe {
         address callee,
         bytes calldata data,
         bytes calldata revertData
-    ) external;
+    )
+        external;
 
     /// Reverts a call to an address with a specific `msg.value`, with specified revert data.
     function mockCallRevert(
@@ -1748,7 +2168,8 @@ interface Vm is VmSafe {
         uint256 msgValue,
         bytes calldata data,
         bytes calldata revertData
-    ) external;
+    )
+        external;
 
     /// Mocks a call to an address, returning specified data.
     /// Calldata can either be strict or a partial match, e.g. if you only
@@ -1763,12 +2184,14 @@ interface Vm is VmSafe {
         uint256 msgValue,
         bytes calldata data,
         bytes calldata returnData
-    ) external;
+    )
+        external;
 
     /// Sets the *next* call's `msg.sender` to be the input address.
     function prank(address msgSender) external;
 
-    /// Sets the *next* call's `msg.sender` to be the input address, and the `tx.origin` to be the second input.
+    /// Sets the *next* call's `msg.sender` to be the input address, and the `tx.origin` to be the
+    /// second input.
     function prank(address msgSender, address txOrigin) external;
 
     /// Sets `block.prevrandao`.
@@ -1776,7 +2199,8 @@ interface Vm is VmSafe {
     /// If used on unsupported EVM versions it will revert.
     function prevrandao(bytes32 newPrevrandao) external;
 
-    /// Reads the current `msg.sender` and `tx.origin` from state and reports if there is any active caller modification.
+    /// Reads the current `msg.sender` and `tx.origin` from state and reports if there is any active
+    /// caller modification.
     function readCallers()
         external
         returns (CallerMode callerMode, address msgSender, address txOrigin);
@@ -1788,7 +2212,8 @@ interface Vm is VmSafe {
     /// Takes the snapshot ID to revert to.
     /// Returns `true` if the snapshot was successfully reverted.
     /// Returns `false` if the snapshot does not exist.
-    /// **Note:** This does not automatically delete the snapshot. To delete the snapshot use `deleteSnapshot`.
+    /// **Note:** This does not automatically delete the snapshot. To delete the snapshot use
+    /// `deleteSnapshot`.
     function revertTo(uint256 snapshotId) external returns (bool success);
 
     /// Revert the state of the EVM to a previous snapshot and automatically deletes the snapshots
@@ -1811,16 +2236,19 @@ interface Vm is VmSafe {
     function rollFork(uint256 blockNumber) external;
 
     /// Updates the currently active fork to given transaction. This will `rollFork` with the number
-    /// of the block the transaction was mined in and replays all transaction mined before it in the block.
+    /// of the block the transaction was mined in and replays all transaction mined before it in the
+    /// block.
     function rollFork(bytes32 txHash) external;
 
     /// Updates the given fork to given block number.
     function rollFork(uint256 forkId, uint256 blockNumber) external;
 
-    /// Updates the given fork to block number of the given transaction and replays all transaction mined before it in the block.
+    /// Updates the given fork to block number of the given transaction and replays all transaction
+    /// mined before it in the block.
     function rollFork(uint256 forkId, bytes32 txHash) external;
 
-    /// Takes a fork identifier created by `createFork` and sets the corresponding forked state as active.
+    /// Takes a fork identifier created by `createFork` and sets the corresponding forked state as
+    /// active.
     function selectFork(uint256 forkId) external;
 
     /// Sets the nonce of an account. Must be higher than the current nonce of the account.
@@ -1837,7 +2265,8 @@ interface Vm is VmSafe {
     /// Sets all subsequent calls' `msg.sender` to be the input address until `stopPrank` is called.
     function startPrank(address msgSender) external;
 
-    /// Sets all subsequent calls' `msg.sender` to be the input address until `stopPrank` is called, and the `tx.origin` to be the second input.
+    /// Sets all subsequent calls' `msg.sender` to be the input address until `stopPrank` is called,
+    /// and the `tx.origin` to be the second input.
     function startPrank(address msgSender, address txOrigin) external;
 
     /// Resets subsequent calls' `msg.sender` to be `address(this)`.
@@ -1860,22 +2289,26 @@ interface Vm is VmSafe {
 
     // ======== Testing ========
 
-    /// Expect a call to an address with the specified `msg.value` and calldata, and a *minimum* amount of gas.
+    /// Expect a call to an address with the specified `msg.value` and calldata, and a *minimum*
+    /// amount of gas.
     function expectCallMinGas(
         address callee,
         uint256 msgValue,
         uint64 minGas,
         bytes calldata data
-    ) external;
+    )
+        external;
 
-    /// Expect given number of calls to an address with the specified `msg.value` and calldata, and a *minimum* amount of gas.
+    /// Expect given number of calls to an address with the specified `msg.value` and calldata, and
+    /// a *minimum* amount of gas.
     function expectCallMinGas(
         address callee,
         uint256 msgValue,
         uint64 minGas,
         bytes calldata data,
         uint64 count
-    ) external;
+    )
+        external;
 
     /// Expects a call to an address with the specified calldata.
     /// Calldata can either be a strict or a partial match.
@@ -1893,29 +2326,42 @@ interface Vm is VmSafe {
         uint256 msgValue,
         bytes calldata data,
         uint64 count
-    ) external;
+    )
+        external;
 
     /// Expect a call to an address with the specified `msg.value`, gas, and calldata.
-    function expectCall(address callee, uint256 msgValue, uint64 gas, bytes calldata data) external;
+    function expectCall(
+        address callee,
+        uint256 msgValue,
+        uint64 gas,
+        bytes calldata data
+    )
+        external;
 
-    /// Expects given number of calls to an address with the specified `msg.value`, gas, and calldata.
+    /// Expects given number of calls to an address with the specified `msg.value`, gas, and
+    /// calldata.
     function expectCall(
         address callee,
         uint256 msgValue,
         uint64 gas,
         bytes calldata data,
         uint64 count
-    ) external;
+    )
+        external;
 
-    /// Prepare an expected log with (bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData.).
-    /// Call this function, then emit an event, then call a function. Internally after the call, we check if
-    /// logs were emitted in the expected order with the expected topics and data (as specified by the booleans).
+    /// Prepare an expected log with (bool checkTopic1, bool checkTopic2, bool checkTopic3, bool
+    /// checkData.).
+    /// Call this function, then emit an event, then call a function. Internally after the call, we
+    /// check if
+    /// logs were emitted in the expected order with the expected topics and data (as specified by
+    /// the booleans).
     function expectEmit(
         bool checkTopic1,
         bool checkTopic2,
         bool checkTopic3,
         bool checkData
-    ) external;
+    )
+        external;
 
     /// Same as the previous method, but also checks supplied address against emitting contract.
     function expectEmit(
@@ -1924,10 +2370,12 @@ interface Vm is VmSafe {
         bool checkTopic3,
         bool checkData,
         address emitter
-    ) external;
+    )
+        external;
 
     /// Prepare an expected log with all topic and data checks enabled.
-    /// Call this function, then emit an event, then call a function. Internally after the call, we check if
+    /// Call this function, then emit an event, then call a function. Internally after the call, we
+    /// check if
     /// logs were emitted in the expected order with the expected topics and data.
     function expectEmit() external;
 
@@ -1943,12 +2391,16 @@ interface Vm is VmSafe {
     /// Expects an error on next call that exactly matches the revert data.
     function expectRevert(bytes calldata revertData) external;
 
-    /// Only allows memory writes to offsets [0x00, 0x60) ∪ [min, max) in the current subcontext. If any other
-    /// memory is written to, the test will fail. Can be called multiple times to add more ranges to the set.
+    /// Only allows memory writes to offsets [0x00, 0x60) ∪ [min, max) in the current subcontext.
+    /// If any other
+    /// memory is written to, the test will fail. Can be called multiple times to add more ranges to
+    /// the set.
     function expectSafeMemory(uint64 min, uint64 max) external;
 
-    /// Only allows memory writes to offsets [0x00, 0x60) ∪ [min, max) in the next created subcontext.
-    /// If any other memory is written to, the test will fail. Can be called multiple times to add more ranges
+    /// Only allows memory writes to offsets [0x00, 0x60) ∪ [min, max) in the next created
+    /// subcontext.
+    /// If any other memory is written to, the test will fail. Can be called multiple times to add
+    /// more ranges
     /// to the set.
     function expectSafeMemoryCall(uint64 min, uint64 max) external;
 
