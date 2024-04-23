@@ -110,6 +110,10 @@ Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33
 - Rootstock
 - Blast
 - Mode
+- Mantle
+- Darwinia
+- Crab
+- Astar zkEVM
 
 Test networks:
 
@@ -135,6 +139,8 @@ Test networks:
 - Blast Sepolia
 - Darwinia Pangolin
 - Taiko Katla
+- Mantle Sepolia
+- Astar zKyoto
 
 More networks are on the way! Please reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 

@@ -14,7 +14,7 @@ contract SphinxConstants {
   address public constant safeSingletonAddress = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
   address public constant sphinxModuleImplAddress = 0x8f4E4d51B8050B0ff713eff1F88f3dD8b5e8a530;
 
-  uint8 internal constant numSupportedNetworks = 47;
+  uint8 internal constant numSupportedNetworks = 53;
 
   function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
     NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
@@ -394,6 +394,54 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 RING'
     });
+    all[47] = NetworkInfo({
+      network: Network.mantle_sepolia,
+      name: "mantle_sepolia",
+      chainId: 5003,
+      networkType: NetworkType.Testnet,
+      dripSize: 5000000000000000000,
+      dripSizeString: '5 MNT'
+    });
+    all[48] = NetworkInfo({
+      network: Network.mantle,
+      name: "mantle",
+      chainId: 5000,
+      networkType: NetworkType.Mainnet,
+      dripSize: 5000000000000000000,
+      dripSizeString: '5 MNT'
+    });
+    all[49] = NetworkInfo({
+      network: Network.astar_zkyoto,
+      name: "astar_zkyoto",
+      chainId: 6038361,
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
+    });
+    all[50] = NetworkInfo({
+      network: Network.astar,
+      name: "astar",
+      chainId: 3776,
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
+    });
+    all[51] = NetworkInfo({
+      network: Network.crab,
+      name: "crab",
+      chainId: 44,
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 CRAB'
+    });
+    all[52] = NetworkInfo({
+      network: Network.darwinia,
+      name: "darwinia",
+      chainId: 46,
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 RING'
+    });
     return all;
   }
 }
@@ -445,5 +493,11 @@ enum Network {
   taiko_katla,
   mode_sepolia,
   mode,
-  darwinia_pangolin
+  darwinia_pangolin,
+  mantle_sepolia,
+  mantle,
+  astar_zkyoto,
+  astar,
+  crab,
+  darwinia
 }
