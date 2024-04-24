@@ -278,13 +278,7 @@ export const deploy = async (
     configArtifacts
   )
 
-  await sphinxContext.assertNoLinkedLibraries(
-    scriptPath,
-    foundryToml.cachePath,
-    foundryToml.artifactFolder,
-    projectRoot,
-    targetContract
-  )
+  await sphinxContext.assertNoLinkedLibraries(deploymentInfo.scriptArtifactPath)
 
   const isSystemDeployed = await checkSystemDeployed(provider)
   const networkConfig = makeNetworkConfig(
@@ -472,12 +466,15 @@ export const deploy = async (
 // something that's injected by foundry. the verification API should be able to handle this field,
 // but it can't.
 
-// TODO(docs): probably not necessary to say this: We could theoretically restrict the verification
-// input object to include only the necessary fields, but this opens up the possibility that we omit
-// a necessary field (e.g. recall spencer from hats viaIR). also, the solidity compiler could add
-// fields in the future. the drawback of keeping arbitrary fields on the VerificationInput is that
-// there could be fields like `compilationTarget` that break verification. it's worth mentioning
-// that compilationTarget is a solidity field, not something that's injected by foundry.
+// TODO(later-later): investigate fields that exist in the compiler input but don't exist in the
+// metadata and vice versa. e.g. `compilationTarget` caused etherscan verification to fail. an
+// alternative solution is to manually construct the compiler input object from the metadata,
+// although that approach could be prone to us omitting fields that should be transferred from the
+// metadata object to the compiler input object.
+
+// TODO(later-later): validate that the user has specified `use_literal_content=true` in their
+// foundry.toml. also, consider validating that literal content exists in the collected artifacts.
+// (the latter may not be necessary).
 
 // TODO(later-later): consider making a type predicate for the verification input, which should only
 // include necessary fields.
@@ -490,8 +487,7 @@ export const deploy = async (
 // TODO(later-later): add FOUNDRY_USE_LITERAL_CONTENT every time you call a forge command in the
 // deploy/propose logic.
 
-// TODO(later-later): remove build_info=true in foundry.tomls in the monorepo, and add
-// use_literal_content.
+// TODO(later-later): add use_literal_content=true in foundry.tomls in the monorepo.
 
 // TODO(later-later): set `use_literal_content=false`. then, run `forge build`. then, step through a
 // proposal. there should only be one long re-compilation in the proposal process. if there isn't,
@@ -502,17 +498,17 @@ export const deploy = async (
 // TODO(later-later): display a warning if the user doesn't have `use_literal_content` enabled. make
 // sure this doesn't interfere with the spinner output. do this in Deploy and Propose commands.
 
-// TODO(later-later): make sure you didn't delete fields from the artifact object. you could
-// inadvertintely do this by deleting fields from the minimumCompilerInput if it's built from the
-// artifact. this could lead to surprising behavior with the artifact if it's used later. document
+// TODO(later-later):
+// https://linear.app/chugsplash/issue/CHU-963/consider-removing-the-forge-build-force-instruction-from-the-preview
+
+// TODO(later-later): c/f @property {SolidityStorageLayout} [storageLayout]. This doesn’t appear to be used.
+
+// ----------------------------------------------------------------------------------
+
+// TODO(end): gh: the next PR will add the 'use_literal_content' stuff, which is necessary to verify
+// contracts on etherscan. i'll do this PR.
+
+// TODO(later): check that you updated the TypeScript types in a backwards compatible manner.
+
+// TODO(docs): outputSelection exists in compiler input but not metadata. etherscan auto-populates
 // this.
-
-// TODO(later-later): check that you updated the TypeScript types in a backwards compatible manner.
-
-// TODO(later): consider splitting the PR up. first PR is deleting the build info. second PR is
-// adding the 'use_literal_content' stuff.
-
-// TODO: left off: assertNoLinkedLibraries. do we still need the script's artifact when we've
-// supported linked libraries?
-
-// TODO: c/f @property {SolidityStorageLayout} [storageLayout]. This doesn’t appear to be used.

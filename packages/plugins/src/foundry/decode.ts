@@ -62,6 +62,7 @@ export const decodeDeploymentInfo = (
     safeInitData,
     arbitraryChain,
     sphinxLibraryVersion,
+    scriptArtifactPath,
   } = parsed
 
   const blockGasLimit = abiDecodeUint256(parsed.blockGasLimit)
@@ -119,6 +120,7 @@ export const decodeDeploymentInfo = (
     gasEstimates,
     fundsRequestedForSafe,
     safeStartingBalance,
+    scriptArtifactPath,
   }
 
   // TODO(later): update

@@ -59,7 +59,7 @@ export const verifySphinxConfig = async (
     } of actionInput.contracts) {
       const { artifact } = deploymentConfig.configArtifacts[fullyQualifiedName]
 
-      const minimumCompilerInput = makeTODO(artifact.metadata)
+      const minimumCompilerInput = makeMinimumCompilerInput(artifact.metadata)
 
       const solcLongVersion = formatSolcLongVersion(
         artifact.metadata.compiler.version
@@ -121,7 +121,7 @@ export const verifyDeploymentWithRetries = async (
         const { artifact } =
           deploymentConfig.configArtifacts[fullyQualifiedName]
 
-        const minimumCompilerInput = makeTODO(artifact.metadata)
+        const minimumCompilerInput = makeMinimumCompilerInput(artifact.metadata)
 
         // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
         // determine where the contract's creation code ends and the constructor arguments begin. This
@@ -390,7 +390,9 @@ export const verifySphinxSystem = async (
   }
 }
 
-const makeTODO = (metadata: CompilerOutputMetadata): SolcInput => {
+const makeMinimumCompilerInput = (
+  metadata: CompilerOutputMetadata
+): SolcInput => {
   const libraries: SolcInput['settings']['libraries'] = {}
   for (const [fullyQualifiedName, address] of Object.entries(
     metadata.settings.libraries
@@ -401,15 +403,22 @@ const makeTODO = (metadata: CompilerOutputMetadata): SolcInput => {
   }
 
   const sources: SolcInput['sources'] = {}
-  for (const [sourceName, { content }] of Object.entries(metadata.sources)) {
+  for (const [sourceName, { content, keccak256 }] of Object.entries(
+    metadata.sources
+  )) {
     sources[sourceName] = {
       content,
+      keccak256,
     }
   }
 
   const settings = {
     ...metadata.settings,
     libraries,
+    // We must explicitly set the `compilationTarget` to `undefined` to prevent the following error
+    // thrown by Etherscan: "Solidity Compilation Error: Unknown key 'compilationTarget'". This
+    // error occurs because this field exists in Solidity's metadata object but not in its compiler
+    // input object.
     compilationTarget: undefined,
   }
 

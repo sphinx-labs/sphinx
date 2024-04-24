@@ -109,6 +109,7 @@ struct FoundryDeploymentInfo {
     uint256[] gasEstimates;
     uint fundsRequestedForSafe;
     uint safeStartingBalance;
+    string scriptArtifactPath;
 }
 
 enum ExecutionMode {

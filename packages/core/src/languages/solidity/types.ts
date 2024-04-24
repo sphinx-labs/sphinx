@@ -49,7 +49,7 @@ import { ExecutionMode } from '../../constants'
  * was initiated.
  * @property {string} safeInitData - The raw data that deployed and initialized the Gnosis Safe.
  * This is null for deployments that use a previously deployed Gnosis Safe.
-*/
+ */
 export type ExecutionArtifact = {
   _format: 'sphinx-sol-execution-artifact-1'
   transactions: Array<{
@@ -282,7 +282,7 @@ export type BuildInfo = {
 
 export interface SolcInput {
   language: string
-  sources: { [sourceName: string]: { content: string } }
+  sources: { [sourceName: string]: { content: string; keccak256?: string } }
   settings: {
     viaIR?: boolean
     optimizer?: {

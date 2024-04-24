@@ -72,9 +72,5 @@ export type BuildNetworkConfigArray = (
 export type FetchRemoteArtifacts = (args: FetchArtifactsArgs) => void
 
 export type AssertNoLinkedLibraries = (
-  scriptPath: string,
-  cachePath: string,
-  artifactFolder: string,
-  projectRoot: string,
-  targetContract?: string
+  scriptArtifactPath: string
 ) => Promise<void>

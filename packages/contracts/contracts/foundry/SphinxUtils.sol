@@ -1095,6 +1095,7 @@ contract SphinxUtils is SphinxConstants {
         deploymentInfo.sphinxLibraryVersion = getSphinxLibraryVersion();
         deploymentInfo.arbitraryChain = false;
         deploymentInfo.requireSuccess = true;
+        deploymentInfo.scriptArtifactPath = ''; // TODO
 
         // We fill the block number in later in Typescript. We have to do this using a call to the rpc provider
         // instead of using `block.number` within forge b/c some networks have odd changes to what `block.number`

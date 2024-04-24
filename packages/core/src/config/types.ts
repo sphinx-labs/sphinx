@@ -120,6 +120,7 @@ export type DeploymentInfo = {
   gasEstimates: Array<string>
   fundsRequestedForSafe: string
   safeStartingBalance: string
+  scriptArtifactPath: string
 }
 
 export type InitialChainState = {

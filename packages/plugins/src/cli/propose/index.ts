@@ -170,20 +170,15 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
 
   const configArtifacts = await makeConfigArtifacts(artifactPaths)
 
-  collected.forEach(({ deploymentInfo }) =>
+  for (const { deploymentInfo } of collected) {
     assertContractSizeLimitNotExceeded(
       deploymentInfo.accountAccesses,
       configArtifacts
     )
-  )
-
-  await sphinxContext.assertNoLinkedLibraries(
-    scriptPath,
-    foundryToml.cachePath,
-    foundryToml.artifactFolder,
-    projectRoot,
-    targetContract
-  )
+    await sphinxContext.assertNoLinkedLibraries(
+      deploymentInfo.scriptArtifactPath
+    )
+  }
 
   const networkConfigArrayWithRpcUrls = collected.map(
     ({ deploymentInfo, libraries, rpcUrl }) => {

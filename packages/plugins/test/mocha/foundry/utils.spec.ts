@@ -423,7 +423,7 @@ describe('Utils', async () => {
         cbor_metadata: true,
         revert_strings: null,
         sparse_mode: false,
-        build_info: true,
+        build_info: false,
         build_info_path: null,
         fmt: {
           line_length: 120,
@@ -574,7 +574,7 @@ describe('Utils', async () => {
         cbor_metadata: true,
         revert_strings: null,
         sparse_mode: false,
-        build_info: true,
+        build_info: false,
         build_info_path: null,
         fmt: {
           line_length: 120,

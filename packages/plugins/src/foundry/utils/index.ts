@@ -243,29 +243,17 @@ export const compile = (silent: boolean, force: boolean): void => {
  * fact that we don't know the fully qualified name in advance.
  */
 export const assertNoLinkedLibraries: AssertNoLinkedLibraries = async (
-  scriptPath: string,
-  cachePath: string,
-  artifactFolder: string,
-  projectRoot: string,
-  targetContract?: string
+  scriptArtifactPath: string
 ): Promise<void> => {
-  const fullyQualifiedName = targetContract
-    ? `${scriptPath}:${targetContract}`
-    : // Find the fully qualified name using its source name. We can safely assume
-      // that there's a single fully qualified name in the array returned by
-      // `findFullyQualifiedNames` because the user's Forge script was executed successfully before
-      // this function was called, which means there must only be a single contract.
-      findFullyQualifiedNames(scriptPath, cachePath, projectRoot)[0]
-  const artifact = await readContractArtifact(
-    fullyQualifiedName,
-    projectRoot,
-    artifactFolder
+  const artifact = parseFoundryContractArtifact(
+    JSON.parse(await readFileAsync(scriptArtifactPath, 'utf8'))
   )
 
   const containsLibrary =
     Object.keys(artifact.linkReferences).length > 0 ||
     Object.keys(artifact.deployedLinkReferences).length > 0
   if (containsLibrary) {
+    const fullyQualifiedName = `${artifact.sourceName}:${artifact.contractName}`
     throw new Error(
       `Detected linked library in: ${fullyQualifiedName}\n` +
         `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`
@@ -1142,7 +1130,8 @@ export const isDeploymentInfo = (obj: any): obj is DeploymentInfo => {
     Array.isArray(obj.accountAccesses) &&
     obj.accountAccesses.every(isParsedAccountAccess) &&
     Array.isArray(obj.gasEstimates) &&
-    obj.gasEstimates.every((e) => typeof e === 'string')
+    obj.gasEstimates.every((e) => typeof e === 'string') &&
+    typeof obj.scriptArtifactPath === 'string'
   )
 }
 
