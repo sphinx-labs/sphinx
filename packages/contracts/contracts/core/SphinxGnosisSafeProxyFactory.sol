@@ -105,3 +105,5 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
 // TODO(later-later): i don't think the `SphinxModuleProxyFactory.sol:deploySphinxModuleProxy`
 // function should return an address. it seems unnecessary. i'm not talking about the
 // SphinxGnosisSafeProxyFactory.
+
+// TODO(later): can we remove the `approve` leaf?
