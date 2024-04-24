@@ -86,8 +86,6 @@ export const decodeDeploymentInfo = (
       decodedResult
     ) as any
 
-    // TODO(later): update to include `string | null` artifactPath
-
     return parsedAccountAccess
   })
 

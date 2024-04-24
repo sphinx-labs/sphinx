@@ -447,9 +447,6 @@ export const deploy = async (
   }
 }
 
-// TODO(end): i think it'd make the most sense for the accountAccess.artifactPath to only be
-// defined for `Create` types.
-
 // TODO(end): notion: when this feature is released, tell every user to put
 // `use_literal_content=true` in their foundry.toml. also, tell them to remove `build_info=true`.
 
@@ -460,17 +457,6 @@ export const deploy = async (
 // `use_literal_content=true` in their foundry.toml.
 
 // TODO(docs): the metadata appears to be included in the contract artifact by default in foundry.
-
-// TODO(docs): Reason: Fail - Unable to verify. Solidity Compilation Error: Unknown key
-// "compilationTarget". This field is in the artifact by default. this is a solidity field, not
-// something that's injected by foundry. the verification API should be able to handle this field,
-// but it can't.
-
-// TODO(later-later): investigate fields that exist in the compiler input but don't exist in the
-// metadata and vice versa. e.g. `compilationTarget` caused etherscan verification to fail. an
-// alternative solution is to manually construct the compiler input object from the metadata,
-// although that approach could be prone to us omitting fields that should be transferred from the
-// metadata object to the compiler input object.
 
 // TODO(later-later): validate that the user has specified `use_literal_content=true` in their
 // foundry.toml. also, consider validating that literal content exists in the collected artifacts.
@@ -508,7 +494,7 @@ export const deploy = async (
 // TODO(end): gh: the next PR will add the 'use_literal_content' stuff, which is necessary to verify
 // contracts on etherscan. i'll do this PR.
 
-// TODO(later): check that you updated the TypeScript types in a backwards compatible manner.
-
 // TODO(docs): outputSelection exists in compiler input but not metadata. etherscan auto-populates
 // this.
+
+// TODO(later): check that you updated the TypeScript types in a backwards compatible manner.
