@@ -103,102 +103,6 @@ import { contractsExceedSizeLimitErrorMessage } from '../../error-messages'
 
 const readFileAsync = promisify(readFile)
 
-export const messageArtifactNotFound = (fullyQualifiedName: string): string => {
-  return (
-    `Could not find artifact for: ${fullyQualifiedName}. Please reload your artifacts by running:\n` +
-    `forge clean`
-  )
-}
-
-export const messageMultipleArtifactsFound = (
-  contractNameOrFullyQualifiedName: string
-): string => {
-  return (
-    `Detected multiple contracts with the name ${contractNameOrFullyQualifiedName}. Please use the fully \n` +
-    `qualified name for this contract in the format: 'path/to/file/File.sol:MyContract'`
-  )
-}
-
-/**
- * @notice Read a Foundry contract artifact from the file system.
- * @dev The location of an artifact file will be nested in the artifacts folder if there's more than
- * one contract in the contract source directory with the same name. This function ensures that we
- * retrieve the correct contract artifact in all cases. It works by checking the deepest possible
- * file location, and searching shallower directories until the file is found or until all
- * possibilities are exhausted.
- *
- * Example: Consider a project with a file structure where the project root is at
- * '/Users/dev/myRepo', and the contract is defined in
- * '/Users/dev/myRepo/src/tokens/MyFile.sol:MyContract'. The function will first try to find the
- * artifact in 'myRepo/artifacts/src/tokens/MyFile/MyContract.json'. If not found, it will then try
- * 'myRepo/artifacts/tokens/MyFile/MyContract.json' (notice that 'src/' is removed in this attempt),
- * and finally 'myRepo/artifacts/MyFile/MyContract.json' (notice that 'src/tokens/ is removed in
- * this attempt). If the artifact is still not found, it throws an error.
- */
-// TODO(later): can we remove this function?
-export const readContractArtifact = async (
-  fullyQualifiedName: string,
-  projectRoot: string,
-  artifactFolder: string
-): Promise<ContractArtifact> => {
-  // Get the source file name (e.g. `MyFile.sol`) and contract name (e.g. `MyContractName`).
-  const [sourceFileName, contractName] = path
-    .basename(fullyQualifiedName)
-    .split(':')
-
-  // Removes the source file name and the contract name from the path. For example, if the fully
-  // qualified name is `/Users/dev/myRepo/src/MySourceFile.sol:MyContractName`, then the source
-  // directory path will be `/Users/dev/myRepo/src/`.
-  const sourceDirectoryPath = dirname(fullyQualifiedName)
-
-  // The source directory path can either be an absolute path or a path relative to the project
-  // root. We change it to always be a path relative to the project root because this is the only
-  // relevant segment of the path for retrieving the artifact.
-  const relativeSourceDirPath = path.relative(projectRoot, sourceDirectoryPath)
-
-  // Split the relative source directory path into parts.
-  let pathParts = relativeSourceDirPath.split(path.sep)
-  // Loop through the path parts. We start with the entire relative path on the first iteration, and
-  // we remove the base directory on each iteration. We'll keep looping until we find a path that
-  // contains a contract artifact, or until we run out of path parts. For example, if the initial
-  // relative path is 'myDir/contracts/tokens/', we'll start with this entire path on the first
-  // iteration, then 'contracts/tokens/' on the second iteration, and 'tokens/' on the third.
-  while (pathParts.length > 0) {
-    const joinedPathParts = pathParts.join(path.sep)
-    const currentPath = join(
-      artifactFolder,
-      joinedPathParts,
-      sourceFileName,
-      `${contractName}.json`
-    )
-
-    if (existsSync(currentPath)) {
-      return parseFoundryContractArtifact(
-        JSON.parse(await readFileAsync(currentPath, 'utf8'))
-      )
-    }
-
-    // Remove the base path part.
-    pathParts = pathParts.slice(1)
-  }
-
-  // If we make it to this point, the artifact must exist at the most shallow level of the artifacts
-  // directory, or not exist at all.
-
-  const shortestPath = join(
-    artifactFolder,
-    sourceFileName,
-    `${contractName}.json`
-  )
-  if (existsSync(shortestPath)) {
-    return parseFoundryContractArtifact(
-      JSON.parse(await readFileAsync(shortestPath, 'utf8'))
-    )
-  }
-
-  throw new Error(messageArtifactNotFound(fullyQualifiedName))
-}
-
 /**
  * Compile the contracts using Forge.
  *
@@ -280,7 +184,8 @@ export const makeConfigArtifacts = async (
   return configArtifacts
 }
 
-// TODO(later): can we remove the bytecode matching logic?
+// TODO(later): can we remove the bytecode matching logic? we may want to keep the creation code
+// logic to check that foundry's diff_score didn't give us an incorrect artifact.
 
 /**
  * Attempts to infer the default solc version given by `solc --version`. If this fails, it will

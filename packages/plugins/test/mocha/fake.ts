@@ -22,7 +22,7 @@ import {
   getDummyNetworkConfig,
   getDummySphinxTransactionReceipt,
 } from './dummy'
-import { readContractArtifact } from '../../dist'
+import { readContractArtifact } from './common'
 
 export const getFakeActionSucceededReceipt = (
   merkleRoot: string
@@ -56,11 +56,7 @@ export const getFakeConfigArtifacts = async (
 ): Promise<ConfigArtifacts> => {
   const configArtifacts: ConfigArtifacts = {}
   for (const name of fullyQualifiedNames) {
-    const artifact = await readContractArtifact(
-      name,
-      process.cwd(),
-      artifactFolder
-    )
+    const artifact = readContractArtifact(name, artifactFolder, 'forge-cache')
     configArtifacts[name] = {
       artifact,
     }

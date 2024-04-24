@@ -1,10 +1,8 @@
-import { ConfigArtifacts } from '@sphinx-labs/core'
 import sinon from 'sinon'
 
 import { propose } from '../../src/cli/propose'
 import { deploy } from '../../src/cli/deploy'
 import { makeSphinxContext } from '../../src/cli/context'
-import { readContractArtifact } from '../../dist'
 import { getDummyNetworkConfig } from './dummy'
 
 /**

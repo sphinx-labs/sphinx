@@ -1059,3 +1059,50 @@ export const sumEvenNumbers = (start: number, numTerms: number): number => {
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 export const promiseThatNeverSettles = new Promise(() => {})
+
+/**
+ * Read a contract artifact from the file system. This function should not be used in production
+ * because it relies on Foundry's cache (called `solidity-files-cache.json`), which has a structure
+ * that may change unpredictably. However, this function is useful for tests because it provides an
+ * easy way to find the file path of a contract artifact given the contract's fully qualified name.
+ */
+export const readContractArtifact = (
+  fullyQualifiedName: string,
+  artifactFolder: string,
+  cachePath: string
+): ContractArtifact => {
+  const solidityFilesCacheFilePath = join(
+    cachePath,
+    'solidity-files-cache.json'
+  )
+  const solidityFilesCache = JSON.parse(
+    readFileSync(solidityFilesCacheFilePath, 'utf-8')
+  )
+
+  if (solidityFilesCache._format !== 'ethers-rs-sol-cache-3') {
+    throw new Error(
+      `Unsupported Solidity files cache format: ${solidityFilesCache._format}`
+    )
+  }
+
+  const [sourceName, contractName] = fullyQualifiedName.split(':')
+
+  const artifactsForSourceName = solidityFilesCache.files[sourceName].artifacts
+  const artifact = artifactsForSourceName[contractName]
+  const artifactPaths = Object.values(artifact)
+
+  if (artifactPaths.length !== 1) {
+    throw new Error(`More than one artifact path. Should never happen.`)
+  }
+  const artifactPath = artifactPaths[0]
+  // Narrow the TypeScript type.
+  if (typeof artifactPath !== 'string') {
+    throw new Error(`Artifact path is not a string. Should never happen.`)
+  }
+
+  const fullArtifactPath = join(artifactFolder, artifactPath)
+
+  return parseFoundryContractArtifact(
+    JSON.parse(readFileSync(fullArtifactPath, 'utf8'))
+  )
+}
