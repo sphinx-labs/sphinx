@@ -20,11 +20,6 @@ import {
   sleep,
 } from '../src'
 
-// We filter out app chains because we expect the mainnet test to cover them adequately
-const fetchNonRollupStackChains = () => {
-  return SPHINX_NETWORKS.filter((network) => network.rollupStack === undefined)
-}
-
 describe('Convert EthersJS Objects', () => {
   const anvilPrivateKey =
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
@@ -82,6 +77,14 @@ describe('Convert EthersJS Objects', () => {
       '0x6a869d63d8c722ed2a4ec2f9af48ec3486f954a46b8f00a0b2ee4411c95f3b78',
     59141: '0x2c9b7cd04f5db3b6ab923dc8e8eabc256f1a1d15467df6014609109965b763fa',
     43: '0x8562f6585e1a345e6a09a214799f0f99ec63e36182da54d32f6e099ae90fe86c',
+    1918988905:
+      '0xa4cf88a9a354eaa9d7aa25ecc607a43cfdc4f82762254d72c4daea5a5899e47a',
+    1380012617:
+      '0x3536ea6046dbcb7b4e85dee0ebff92bca33d53d9defe4684e74a487721e1fb3c',
+    999999999:
+      '0x6d4b16783da5e871ccec22624fdca23417d47197e16c801a72bb10dea93d0ed2',
+    7777777:
+      '0x7f8617c8a7d54ed192c6eff8d995c383594359ff7ceab9584747409df471599d',
   }
 
   before(async () => {
@@ -114,7 +117,7 @@ describe('Convert EthersJS Objects', () => {
 
   it('contains a hash for each live supported network', () => {
     expect(Object.values(transactionHashes).length).equals(
-      Object.values(fetchNonRollupStackChains()).length
+      SPHINX_NETWORKS.length
     )
   })
 
