@@ -88,6 +88,9 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
 
 // TODO(later-later): validation
 
+// TODO(later-later): decide whether we should make this version backwards compatible after we've
+// made the important design decisions.
+
 // TODO(later-later): consider removing every Merkle leaf field.
 
 // TODO(later-later): problem: is it true that every time you release a new module version, the
