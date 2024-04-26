@@ -110,3 +110,6 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
 // SphinxGnosisSafeProxyFactory.
 
 // TODO(later): can we remove the `approve` leaf?
+
+// TODO(later): What do we do if a user signs an arbitrary chain Merkle root then needs to make a
+// small modification to their deployment? Particularly, how do we ensure consistent addresses?
