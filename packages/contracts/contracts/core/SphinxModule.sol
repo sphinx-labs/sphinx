@@ -50,13 +50,14 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
      * @dev The EIP-712 domain separator, which displays a bit of context to the user
      *      when they sign the Merkle root off-chain.
      */
-    bytes32 internal constant DOMAIN_SEPARATOR = keccak256(
-        abi.encode(
-            keccak256("EIP712Domain(string name,string version)"),
-            keccak256(bytes("Sphinx")),
-            keccak256(bytes(VERSION))
-        )
-    );
+    bytes32 internal constant DOMAIN_SEPARATOR =
+        keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version)"),
+                keccak256(bytes("Sphinx")),
+                keccak256(bytes(VERSION))
+            )
+        );
 
     /**
      * @dev The EIP-712 type hash, which just contains the Merkle root.
@@ -104,7 +105,8 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         string memory safeVersion = GnosisSafe(payable(safeSingleton)).VERSION();
         bytes32 safeVersionHash = keccak256(abi.encodePacked(safeVersion));
         require(
-            safeVersionHash == SAFE_VERSION_HASH_1_3_0 || safeVersionHash == SAFE_VERSION_HASH_1_4_1,
+            safeVersionHash == SAFE_VERSION_HASH_1_3_0 ||
+                safeVersionHash == SAFE_VERSION_HASH_1_4_1,
             "SphinxModule: invalid Safe version"
         );
 
@@ -199,8 +201,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             // `activeMerkleRoot` equals `bytes32(0)`, and we never set it to a non-zero value. This
             // is because the Merkle root is approved and completed in this call.
         } else {
-            // We set the status to `APPROVED` because there are `EXECUTE` leaves in this Merkle
-            // tree.
+            // We set the status to `APPROVED` because there are `EXECUTE` leaves in this Merkle tree.
             state.status = MerkleRootStatus.APPROVED;
             activeMerkleRoot = _root;
         }
@@ -209,10 +210,15 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // more specifically, EIP-712 data that includes the Merkle root). We do this last to
         // follow the checks-effects-interactions pattern, since it's possible for `checkSignatures`
         // to call into another contract if it's validating an EIP-1271 contract signature.
-        bytes memory typedData =
-            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _root)));
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _root))
+        );
         GnosisSafe(payable(leafSafeProxy)).checkSignatures(
-            keccak256(typedData), typedData, _signatures
+            keccak256(typedData),
+            typedData,
+            _signatures
         );
     }
 
@@ -273,7 +279,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
         // Cancel the active Merkle root.
         emit SphinxMerkleRootCanceled(
-            _root, merkleRootToCancel, leafMerkleRootNonce, msg.sender, uri
+            _root,
+            merkleRootToCancel,
+            leafMerkleRootNonce,
+            msg.sender,
+            uri
         );
         merkleRootStates[merkleRootToCancel].status = MerkleRootStatus.CANCELED;
         activeMerkleRoot = bytes32(0);
@@ -296,10 +306,15 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // more specifically, EIP-712 data that includes the Merkle root). We do this last to
         // follow the checks-effects-interactions pattern, since it's possible for `checkSignatures`
         // to call into another contract if it's validating an EIP-1271 contract signature.
-        bytes memory typedData =
-            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _root)));
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _root))
+        );
         GnosisSafe(payable(leafSafeProxy)).checkSignatures(
-            keccak256(typedData), typedData, _signatures
+            keccak256(typedData),
+            typedData,
+            _signatures
         );
     }
 
@@ -321,11 +336,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // Cache the `leavesExecuted` state variable to reduce the number of SLOADs in this call.
         uint256 leavesExecuted = state.leavesExecuted;
 
-        // Revert if the number of previously executed leaves plus the number of leaves in the
-        // current
+        // Revert if the number of previously executed leaves plus the number of leaves in the current
         // array is greater than the `numLeaves` specified in the `approve` function.
         require(
-            state.numLeaves >= leavesExecuted + numActions, "SphinxModule: extra leaves not allowed"
+            state.numLeaves >= leavesExecuted + numActions,
+            "SphinxModule: extra leaves not allowed"
         );
 
         // Cache the `arbitraryChain` boolean. This reduces the amount of SLOADs in this function.
@@ -348,10 +363,10 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             // The current chain ID must match the leaf's chain ID, or the Merkle root must
             // be executable on an arbitrary chain.
             require(
-                leaf.chainId == block.chainid || arbitraryChain, "SphinxModule: invalid chain id"
+                leaf.chainId == block.chainid || arbitraryChain,
+                "SphinxModule: invalid chain id"
             );
-            // If the Merkle root can be executable on an arbitrary chain, the leaf must have a
-            // chain ID
+            // If the Merkle root can be executable on an arbitrary chain, the leaf must have a chain ID
             // of 0. This isn't strictly necessary; it just enforces a convention.
             require(!arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
 
@@ -405,9 +420,14 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             // occurs when making the call, which would otherwise cause the current context to
             // revert. This could happen if the user supplies an extremely low `gas` value (e.g.
             // 1000).
-            try GnosisSafe(safeProxy).execTransactionFromModule{ gas: gas }(
-                to, value, txData, operation
-            ) returns (bool execSuccess) {
+            try
+                GnosisSafe(safeProxy).execTransactionFromModule{ gas: gas }(
+                    to,
+                    value,
+                    txData,
+                    operation
+                )
+            returns (bool execSuccess) {
                 // The `execSuccess` returns whether or not the user's transaction reverted. We
                 // don't use a low-level call to make it easy to retrieve this value.
                 success = execSuccess;

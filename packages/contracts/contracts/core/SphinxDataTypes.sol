@@ -92,3 +92,9 @@ enum MerkleRootStatus {
     CANCELED,
     FAILED
 }
+
+enum PreconditionResult {
+    REVERT,
+    EXECUTE,
+    SKIP
+}
