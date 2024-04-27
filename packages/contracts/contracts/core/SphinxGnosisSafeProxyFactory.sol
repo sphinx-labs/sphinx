@@ -113,3 +113,10 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
 
 // TODO(later): What do we do if a user signs an arbitrary chain Merkle root then needs to make a
 // small modification to their deployment? Particularly, how do we ensure consistent addresses?
+
+// TODO(later): consider enabling the solc optimizer when deploying the new contracts.
+
+// TODO(later): it doesn't make much sense to have fields like the safeProxy and moduleProxy in
+// every Merkle leaf.
+
+// TODO(later-later-later): gas optimize smart contracts.
