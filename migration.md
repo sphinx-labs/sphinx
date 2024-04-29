@@ -20,7 +20,7 @@ Here are two ways we could implement this:
 a. Require our existing users to manually run a CLI command to migrate their Gnosis Safe on every new network until they're ready to switch to a new Gnosis Safe. This could be simple for us to implement, but the UX isn't ideal.
 b. Re-arrange our plugin and website to handle proposals that propose two separate Merkle roots (the first for the migration, and the second for the actual deployment). This seems difficult to implement.
 
-3. Allow migrations to happen in the same Merkle root as a standard deployment
+3. Allow users to migrate then deploy in a single Merkle root
 
 I prefer this solution for a few reasons:
 a. It provides the same UX as regular deployments
