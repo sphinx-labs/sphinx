@@ -1,6 +1,8 @@
 How should we migrate existing users to the newest version of the Sphinx Module?
 
-This decision is likely to impact the migration process for future versions of the Sphinx Module.
+A couple notes:
+* I think this decision is likely to impact the migration process for future versions of the Sphinx Module.
+* I expect our existing users to use the legacy deployment method until they launch the next major version of their protocol. In other words, some of our existing users could be migrating on new networks for the next year.
 
 ## Options
 
