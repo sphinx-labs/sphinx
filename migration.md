@@ -27,6 +27,7 @@ a. It provides the same UX as regular deployments
 b. We can reuse this pattern for future migrations
 c. This pattern doesn't require us to rearchitect how proposals work (like option 2b).
 
+Here's what the leaves of this Merkle tree would look like:
 * `APPROVE` using the initial Merkle tree generation logic
 * `EXECUTE` using the intial Merkle tree generation logic. This leaf would contain a multicall that enables the new Module and disables the old Module. These two actions could probably be split across two separate leaves, but that's an implementation detail.
 * The leaves for the actual deployment using the new Merkle tree generation logic
