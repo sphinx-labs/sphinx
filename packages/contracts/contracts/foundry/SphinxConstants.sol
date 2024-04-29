@@ -14,7 +14,7 @@ contract SphinxConstants {
   address public constant safeSingletonAddress = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
   address public constant sphinxModuleImplAddress = 0x8f4E4d51B8050B0ff713eff1F88f3dD8b5e8a530;
 
-  uint8 internal constant numSupportedNetworks = 53;
+  uint8 internal constant numSupportedNetworks = 54;
 
   function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
     NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
@@ -442,6 +442,14 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 RING'
     });
+    all[53] = NetworkInfo({
+      network: Network.subspace_gemini,
+      name: "subspace_gemini",
+      chainId: 490000,
+      networkType: NetworkType.Testnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 SSC'
+    });
     return all;
   }
 }
@@ -499,5 +507,6 @@ enum Network {
   astar_zkyoto,
   astar,
   crab,
-  darwinia
+  darwinia,
+  subspace_gemini
 }
