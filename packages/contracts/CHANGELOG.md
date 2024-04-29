@@ -1,5 +1,12 @@
 # @sphinx-labs/contracts
 
+## 0.21.11
+
+### Patch Changes
+
+- 01f4d34: Include rollup stack information for all relevant networks
+- 89d421b: Support Astart zkEVM, Mantle, Crab
+
 ## 0.21.10
 
 ### Patch Changes
