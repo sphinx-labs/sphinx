@@ -875,7 +875,7 @@ describe('Propose CLI command', () => {
 })
 
 /**
- * Validates the `gasEstimates` array in the ProposalRequest. This mainly checks that the the
+ * Validates the `gasEstimates` array in the ProposalRequest. This mainly checks that the
  * estimated gas is 30% greater than the actual gas used in the deployment.
  */
 const assertValidGasEstimates = async (

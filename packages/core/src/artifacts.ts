@@ -79,9 +79,7 @@ export const fetchDeploymentArtifacts = async (
         } else if (err.response.status === 404) {
           throw new Error(`No artifacts found for this project`)
         } else {
-          throw new Error(
-            `Unexpected response code, please report this to the developers`
-          )
+          throw err
         }
       } else {
         throw err

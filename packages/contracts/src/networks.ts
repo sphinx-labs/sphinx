@@ -63,8 +63,8 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
 ]
 
 export type NetworkType = 'Testnet' | 'Mainnet' | 'Local'
-type RollupProvider = 'Conduit' | 'Caldera'
-type RollupType = 'OP Stack' | 'Arbitrum'
+type RollupProvider = 'Conduit' | 'Caldera' | 'None'
+type RollupType = 'OP Stack' | 'Arbitrum' | 'Polygon CDK'
 
 export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   {
@@ -156,6 +156,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'optimism_sepolia',
@@ -186,6 +190,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'arbitrum',
@@ -210,6 +218,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: false,
+    rollupStack: {
+      provider: 'None',
+      type: 'Arbitrum',
+    },
   },
   {
     name: 'arbitrum_sepolia',
@@ -234,6 +246,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: false,
+    rollupStack: {
+      provider: 'None',
+      type: 'Arbitrum',
+    },
   },
   {
     name: 'polygon',
@@ -458,6 +474,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: false,
+    rollupStack: {
+      provider: 'None',
+      type: 'Polygon CDK',
+    },
   },
   {
     name: 'polygon_zkevm_cardona',
@@ -482,6 +502,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: false,
+    rollupStack: {
+      provider: 'None',
+      type: 'Polygon CDK',
+    },
   },
   {
     name: 'avalanche',
@@ -602,6 +626,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'base_sepolia',
@@ -632,6 +660,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'celo',
@@ -1109,6 +1141,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'blast',
@@ -1133,6 +1169,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'taiko_katla',
@@ -1176,6 +1216,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'Conduit',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'mode',
@@ -1201,6 +1245,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'Conduit',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'darwinia_pangolin',
@@ -1212,6 +1260,152 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'RING',
     dripSize: '1',
     networkType: 'Testnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    eip2028: true,
+    hardcodedMerkleLeafGas: (11200000).toString(),
+    actionTransactionBatching: false,
+  },
+  {
+    name: 'mantle_sepolia',
+    displayName: 'Mantle Sepolia',
+    chainId: BigInt(5003),
+    rpcUrl: () => process.env.MANTLE_SEPOLIA_URL!,
+    rpcUrlId: 'MANTLE_SEPOLIA_URL',
+    blockexplorers: {
+      blockscout: {
+        browserURL: 'https://explorer.sepolia.mantle.xyz/',
+        apiURL: 'https://explorer.sepolia.mantle.xyz/api',
+        envKey: 'MANTLE_SEPOLIA_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
+    },
+    currency: 'MNT',
+    dripSize: '5',
+    networkType: 'Testnet',
+    dripVersion: 1,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    eip2028: true,
+    actionTransactionBatching: false,
+  },
+  {
+    name: 'mantle',
+    displayName: 'Mantle',
+    chainId: BigInt(5000),
+    rpcUrl: () => process.env.MANTLE_MAINNET_URL!,
+    rpcUrlId: 'MANTLE_MAINNET_URL',
+    blockexplorers: {
+      blockscout: {
+        browserURL: 'https://explorer.mantle.xyz/',
+        apiURL: 'https://explorer.mantle.xyz/api',
+        envKey: 'MANTLE_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
+    },
+    currency: 'MNT',
+    dripSize: '5',
+    networkType: 'Mainnet',
+    dripVersion: 1,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    eip2028: true,
+    actionTransactionBatching: false,
+  },
+  {
+    name: 'astar_zkyoto',
+    displayName: 'Astar zKyoto',
+    chainId: BigInt(6038361),
+    rpcUrl: () => process.env.ASTAR_ZKYOTO_URL!,
+    rpcUrlId: 'ASTAR_ZKYOTO_URL',
+    blockexplorers: {
+      blockscout: {
+        browserURL: 'https://zkyoto.explorer.startale.com/',
+        apiURL: 'https://zkyoto.explorer.startale.com/api',
+        envKey: 'ASTAR_ZKYOTO_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.15',
+    networkType: 'Testnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    eip2028: true,
+    actionTransactionBatching: false,
+    rollupStack: {
+      provider: 'None',
+      type: 'Polygon CDK',
+    },
+  },
+  {
+    name: 'astar',
+    displayName: 'Astar zkEVM',
+    chainId: BigInt(3776),
+    rpcUrl: () => process.env.ASTAR_MAINNET_URL!,
+    rpcUrlId: 'ASTAR_MAINNET_URL',
+    blockexplorers: {
+      blockscout: {
+        browserURL: 'https://astar-zkevm.explorer.startale.com/',
+        apiURL: 'https://astar-zkevm.explorer.startale.com/api',
+        envKey: 'ASTAR_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.025',
+    networkType: 'Mainnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    eip2028: true,
+    actionTransactionBatching: false,
+    rollupStack: {
+      provider: 'None',
+      type: 'Polygon CDK',
+    },
+  },
+  {
+    name: 'crab',
+    displayName: 'Crab',
+    chainId: BigInt(44),
+    rpcUrl: () => process.env.DARWINIA_CRAB_MAINNET_URL!,
+    rpcUrlId: 'DARWINIA_CRAB_MAINNET_URL',
+    blockexplorers: {},
+    currency: 'CRAB',
+    dripSize: '1',
+    networkType: 'Mainnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    eip2028: true,
+    hardcodedMerkleLeafGas: (11200000).toString(),
+    actionTransactionBatching: false,
+  },
+  {
+    name: 'darwinia',
+    displayName: 'Darwinia',
+    chainId: BigInt(46),
+    rpcUrl: () => process.env.DARWINIA_MAINNET_URL!,
+    rpcUrlId: 'DARWINIA_MAINNET_URL',
+    blockexplorers: {},
+    currency: 'RING',
+    dripSize: '1',
+    networkType: 'Mainnet',
     dripVersion: 0,
     decimals: 18,
     queryFilterBlockLimit: 2000,
