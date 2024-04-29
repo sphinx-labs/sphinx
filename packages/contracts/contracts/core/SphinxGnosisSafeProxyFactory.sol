@@ -120,3 +120,20 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
 // every Merkle leaf.
 
 // TODO(later-later-later): gas optimize smart contracts.
+
+// TODO(later): I think it's acceptable to essentially require our existing users to migrate to the
+// latest SphinxModule version. However, this may not be a viable option for future migrations.
+// Could the following things be ideal?
+// 1. Migrations in the future are opt-in.
+// 2. The process of migrating should be seamless for the user.
+// 3. There shouldn't be any maintenance burden on us to maintain earlier versions. (i.e. we should
+//    be able to reuse the same logic for every version).
+
+// TODO(later): the `leaf.leafType` field isn't necessary anymore.
+
+// TODO(later): could we simplify the `arbitraryChain` to just be `chainId == 0`? i guess the
+// counterargument is that `chainId == 0` is implicit, which may be unintuitive. however,
+// you probably need docs to understand what `arbitraryChain` is anyways.
+
+// TODO(later): it's probably not necessary to ABI encode so much data in the `data` field because
+// we don't have the leafType anymore.
