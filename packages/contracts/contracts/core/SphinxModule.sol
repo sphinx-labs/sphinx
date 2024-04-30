@@ -24,7 +24,7 @@ import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
  * @title SphinxModule
  * @notice The `SphinxModule` contains the logic that executes deployments in a Gnosis Safe and
  *         verifies that the Gnosis Safe owners have signed the Merkle root that contains
- *         the deployment.
+ *         the deployment. It also contains logic for cancelling active Merkle roots.
  *
  *         The `SphinxModule` exists as an implementation contract, which is delegatecalled
  *         by minimal, non-upgradeable EIP-1167 proxy contracts. We use this architecture
