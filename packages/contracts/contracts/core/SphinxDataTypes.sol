@@ -72,6 +72,9 @@ struct MerkleRootState {
     bool arbitraryChain;
 }
 
+// TODO(docs): explain why we're keeping enum members that aren't used by the current module
+// version. (it's to maintain backwards compatibility in off-chain logic).
+// TODO(docs): document which fields are deprecated.
 /**
  * @notice Enum that represents the status of a Merkle root in a `SphinxModuleProxy`.
  *

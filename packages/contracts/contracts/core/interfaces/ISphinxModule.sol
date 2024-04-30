@@ -27,15 +27,14 @@ interface ISphinxModule {
      * @notice Emitted when a Merkle root is approved.
      *
      * @param merkleRoot         The Merkle root that was approved.
-     * @param nonce              The `nonce` field in the `APPROVE` leaf. This matches the nonce
-     *                           in the `SphinxModuleProxy` before the approval occurred.
+     * @param previousMerkleRoot TODO(docs)
      * @param executor           The address of the caller.
      * @param numLeaves          The total number of leaves in the Merkle tree on the current chain.
      * @param uri                The URI of the Merkle root. This may be an empty string.
      */
     event SphinxMerkleRootApproved(
         bytes32 indexed merkleRoot,
-        uint256 indexed nonce,
+        bytes32 indexed previousMerkleRoot,
         address executor,
         uint256 numLeaves,
         string uri
@@ -81,12 +80,13 @@ interface ISphinxModule {
      */
     function VERSION() external view returns (string memory);
 
+    // TODO(later): update docs
     /**
      * @notice The Merkle root that is currently active. This means that it has been signed
      *         off-chain by the Gnosis Safe owner(s) and approved on-chain. This is `bytes32(0)` if
      *         there is no active Merkle root.
      */
-    function activeMerkleRoot() external view returns (bytes32);
+    function latestMerkleRoot() external view returns (bytes32);
 
     /**
      * @notice Approve a new Merkle root, which must be signed by a sufficient number of Gnosis Safe
@@ -122,19 +122,6 @@ interface ISphinxModule {
         bytes memory _signatures
     )
         external;
-
-    /**
-     * @notice The current nonce in this contract. This is incremented each time a Merkle root is
-     *         used for the first time in the current contract. This can occur by using the Merkle
-     *         root to approve a deployment, or cancel an active one. The nonce removes the
-     *         possibility that a Merkle root can be signed by the owners, then submitted on-chain
-     *         far into the future, even after other Merkle roots have been submitted. The nonce
-     *         also allows the Gnosis Safe owners to cancel a Merkle root that has been signed
-     *         off-chain, but has not been approved on-chain. In this situation, the owners can
-     *         approve a new Merkle root that has the same nonce, then approve it on-chain,
-     *         preventing the old Merkle root from ever being approved.
-     */
-    function merkleRootNonce() external view returns (uint256);
 
     /**
      * @notice Mapping from a Merkle root to its `MerkleRootState` struct.

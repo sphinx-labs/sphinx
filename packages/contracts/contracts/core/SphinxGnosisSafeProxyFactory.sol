@@ -21,7 +21,7 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
     function deployGnosisSafeWithSphinxModule(
         bytes memory _safeInitCode, // TODO(docs): we pass in the bytecode so that it matches the
             // bytecode that would be deployed by Gnosis Safe's default proxy factory. if we deploy
-            // them directly from this contract, their bytecode will differ because of different
+            // the proxy directly from this contract, its bytecode will differ because of different
             // compilation settings and metadata hashes. it may not be important to keep identical
             // bytecode, but we do it in case gnosis safe off-chain tooling requires it.
         bytes memory _safeInitializer,
@@ -35,26 +35,22 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
         // cheaper than concatenating it.
         bytes32 salt = keccak256(abi.encodePacked(keccak256(_safeInitializer), _saltNonce));
 
-        // TODO(docs): we don't check that the sphinx module is deployed because it's not necessary.
-        // (if the safe proxy hasn't been deployed, we know that the module proxy hasn't been
-        // deployed either because...)
-
         address safeProxy = Create2.computeAddress(salt, keccak256(_safeInitCode));
+        address moduleProxy = moduleProxyFactory.computeSphinxModuleProxyAddress(
+            safeProxy,
+            safeProxy,
+            _saltNonce
+        );
+
         // TODO(docs): it's not strictly necessary to check this, but we do it anyways to provide a
-        // useful error message if the safe proxy has already been deployed.
+        // useful error message if they've already been deployed.
+        require(moduleProxy.code.length == 0, "TODO(docs)");
         require(safeProxy.code.length == 0, "TODO(docs)");
 
         Create2.deploy(0, salt, _safeInitCode);
 
         (bool success,) = safeProxy.call(_safeInitializer);
         require(success, "TODO(docs)");
-
-        // Get the address of the Sphinx Module proxy that will be deployed.
-        address moduleProxy = moduleProxyFactory.computeSphinxModuleProxyAddress(
-            safeProxy, // TODO(later): `safeProxy` isn't defined yet
-            safeProxy,
-            _saltNonce
-        );
 
         // Check that the Sphinx Module proxy is deployed and that it's enabled in the Gnosis Safe
         // proxy. We don't need to check that the Gnosis Safe proxy is deployed because we deployed
@@ -72,68 +68,8 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
     }
 }
 
-// TODO(end): queue: grammarly in audit notion page. also, coverage. also, check for unnecessary
-// imports.
-
-// TODO(later-later): reconsider event parameters in `DeployedGnosisSafeWithSphinxModule`.
-
-// TODO(later-later): check for parity with Safe v1.3.0 and v1.4.1.
-
-// TODO(later-later): add the griefing vector as a test case.
-
-// TODO(later): consider checking the inverse of the final require statements at the beginning of
-// the function.
-
-// TODO(later-later): push to a private branch
-
-// TODO(later-later): validation
-
-// TODO(later-later): decide whether we should make this version backwards compatible after we've
-// made the important design decisions.
-
-// TODO(later-later): consider removing every Merkle leaf field.
-
-// TODO(later-later): problem: is it true that every time you release a new module version, the
-// addresses of deployed gnosis safes will change?
-
-// TODO(later-later): i think we need to be careful to ensure that a given gnosis safe only signs a
-// single meta transaction with a given `merkleRootNonce`. e.g. if they sign two meta txns with a
-// `merkleRootNonce === 0`, i think either one could be executed first, invalidating the other. this
-// may be problematic in a couple situations:
-// 1. the user signs a meta transaction, then needs to modify an aspect of their deployment.
-// 2. if the private key of the executor gets leaked, do we need to change the address of the merkle
-//    leaf's `executor` field? if so, we may need the user to sign a new meta txn. also, the initial
-//    merkle root could be executed by anyone.
-
-// TODO(later-later): i don't think the `SphinxModuleProxyFactory.sol:deploySphinxModuleProxy`
-// function should return an address. it seems unnecessary. i'm not talking about the
-// SphinxGnosisSafeProxyFactory.
-
-// TODO(later): can we remove the `approve` leaf?
-
-// TODO(later): What do we do if a user signs an arbitrary chain Merkle root then needs to make a
-// small modification to their deployment? Particularly, how do we ensure consistent addresses?
-
-// TODO(later): consider enabling the solc optimizer when deploying the new contracts.
-
-// TODO(later): it doesn't make much sense to have fields like the safeProxy and moduleProxy in
-// every Merkle leaf.
-
-// TODO(later-later-later): gas optimize smart contracts.
-
-// TODO(later): I think it's acceptable to essentially require our existing users to migrate to the
-// latest SphinxModule version. However, this may not be a viable option for future migrations.
-// Could the following things be ideal?
-// 1. Migrations in the future are opt-in.
-// 2. The process of migrating should be seamless for the user.
-// 3. There shouldn't be any maintenance burden on us to maintain earlier versions. (i.e. we should
-//    be able to reuse the same logic for every version).
-
-// TODO(later): the `leaf.leafType` field isn't necessary anymore.
-
-// TODO(later): could we simplify the `arbitraryChain` to just be `chainId == 0`? i guess the
-// counterargument is that `chainId == 0` is implicit, which may be unintuitive. however,
-// you probably need docs to understand what `arbitraryChain` is anyways.
-
-// TODO(later): it's probably not necessary to ABI encode so much data in the `data` field because
-// we don't have the leafType anymore.
+// TODO(later):
+// - Check for parity with Safe v1.3.0 and v1.4.1.
+// - Add the griefing vector as a test case.
+// - Consider checking the inverse of the final require statements at the beginning of the function.
+// - Anything else we should validate at the beginning of the function?
