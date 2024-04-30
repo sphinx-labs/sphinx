@@ -8,8 +8,6 @@ import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 // these contracts have the same interface as Gnosis Safe v1.4.1 for the functions used in this
 // contract.
 import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
-// TODO(end): rm
-import { console2 as console } from "../forge-std/src/console2.sol";
 
 contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
     ISphinxModuleProxyFactory private immutable moduleProxyFactory;
@@ -19,12 +17,12 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
     }
 
     function deployGnosisSafeWithSphinxModule(
-        bytes memory _safeInitCode, // TODO(docs): we pass in the bytecode so that it matches the
+        bytes memory _initCode, // TODO(docs): we pass in the bytecode so that it matches the
             // bytecode that would be deployed by Gnosis Safe's default proxy factory. if we deploy
             // the proxy directly from this contract, its bytecode will differ because of different
             // compilation settings and metadata hashes. it may not be important to keep identical
             // bytecode, but we do it in case gnosis safe off-chain tooling requires it.
-        bytes memory _safeInitializer,
+        bytes memory _initializer,
         uint256 _saltNonce // TODO(docs): for simplicity, we use the same salt nonce to deploy the
             // gnosis safe proxy and the sphinx module proxy.
     )
@@ -33,9 +31,9 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
         // Create the Gnosis Safe proxy's `CREATE2` salt. This salt ensures that the proxy's address
         // changes if its initializer data changes. The initializer data is hashed because it's
         // cheaper than concatenating it.
-        bytes32 salt = keccak256(abi.encodePacked(keccak256(_safeInitializer), _saltNonce));
+        bytes32 salt = keccak256(abi.encodePacked(keccak256(_initializer), _saltNonce));
 
-        address safeProxy = Create2.computeAddress(salt, keccak256(_safeInitCode));
+        address safeProxy = Create2.computeAddress(salt, keccak256(_initCode));
         address moduleProxy = moduleProxyFactory.computeSphinxModuleProxyAddress(
             safeProxy,
             safeProxy,
@@ -47,9 +45,9 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
         require(moduleProxy.code.length == 0, "TODO(docs)");
         require(safeProxy.code.length == 0, "TODO(docs)");
 
-        Create2.deploy(0, salt, _safeInitCode);
+        Create2.deploy(0, salt, _initCode);
 
-        (bool success,) = safeProxy.call(_safeInitializer);
+        (bool success,) = safeProxy.call(_initializer);
         require(success, "TODO(docs)");
 
         // Check that the Sphinx Module proxy is deployed and that it's enabled in the Gnosis Safe
@@ -68,8 +66,5 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
     }
 }
 
-// TODO(later):
-// - Check for parity with Safe v1.3.0 and v1.4.1.
+// TODO(later-later): Test:
 // - Add the griefing vector as a test case.
-// - Consider checking the inverse of the final require statements at the beginning of the function.
-// - Anything else we should validate at the beginning of the function?
