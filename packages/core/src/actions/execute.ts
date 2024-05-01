@@ -244,7 +244,7 @@ export type DeploymentContext = {
   /**
    * Stores the deployment metadata for easy access.
    *
-   * Provides us with a common interface for information about the deployment. In the website this is is a real object
+   * Provides us with a common interface for information about the deployment. In the website this is a real object
    * in the DB. We use a minimal type here to make it easy to work with in the deploy and propose command logic.
    */
   deployment: Deployment
