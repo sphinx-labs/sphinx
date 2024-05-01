@@ -198,6 +198,6 @@ contract ManagedService_Test is Test, ManagedService {
 
     function test_RevertIfOwnerIsAddressZero() external {
         vm.expectRevert("ManagedService: admin cannot be address(0)");
-        new ManagedService{ salt: keccak256("1") }(address(0));
+        new ManagedService(address(0));
     }
 }
