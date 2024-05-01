@@ -6,6 +6,7 @@ import { Vm } from "../contracts/forge-std/src/Vm.sol";
 import { StdCheats } from "../contracts/forge-std/src/StdCheats.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
+import { SphinxModuleProxyFactory } from "../contracts/core/SphinxModuleProxyFactory.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxLeafWithProof, SphinxLeafType } from "../contracts/core/SphinxDataTypes.sol";
 import { IEnum } from "../contracts/foundry/interfaces/IEnum.sol";
@@ -655,6 +656,78 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         } else {
             revert("Unknown Gnosis Safe version. Should never happen.");
         }
+    }
+
+    function getGnosisSafeProxyInitCode_1_4_1() public pure returns (bytes memory) {
+        return hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea264697066735822122003d1488ee65e08fa41e58e888a9865554c535f2c77126a82cb4c0f917f31441364736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
+    }
+
+    // TODO(docs): this is the same for gnosis v1.3.0 and v1.4.1.
+    // TODO(later-later): refactor SphinxModuleProxy.t.sol:initializeGnosisSafeWithModule into this.
+    function makeGnosisSafeInitializerData(
+        SphinxModuleProxyFactory _moduleProxyFactory,
+        uint256 _saltNonce,
+        address[] memory _owners,
+        uint256 _threshold,
+        address _multiSend,
+        address _fallbackHandler
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // Encode the data that will deploy the Sphinx Module proxy.
+        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
+            _moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector, _saltNonce
+        );
+        // Encode the data in a format that can be executed using `MultiSend`.
+        bytes memory deployModuleMultiSendData = abi.encodePacked(
+            // We use `Call` so that the Gnosis Safe proxy calls the `SphinxModuleProxyFactory` to
+            // deploy the Sphinx Module proxy. This makes it easier for off-chain tooling to
+            // calculate the deployed Sphinx Module proxy address because the
+            // `SphinxModuleProxyFactory`'s address is a known constant.
+            uint8(Enum.Operation.Call),
+            _moduleProxyFactory,
+            uint256(0), // Set the value to 0 because we never send native gas tokens in this call
+            encodedDeployModuleCall.length,
+            encodedDeployModuleCall
+        );
+
+        // Encode the data that will enable the Sphinx Module proxy in the Gnosis Safe proxy.
+        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
+            _moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector, _saltNonce
+        );
+        // Encode the data in a format that can be executed using `MultiSend`.
+        bytes memory enableModuleMultiSendData = abi.encodePacked(
+            // The Gnosis Safe proxy will delegatecall the SphinxModuleProxyFactory to enable the
+            // module. This is necessary because the Sphinx Module proxy's address can't be included
+            // in the Gnosis Safe proxy's initializer data.
+            uint8(Enum.Operation.DelegateCall),
+            _moduleProxyFactory,
+            uint256(0), // Set the value to 0 because we never send native gas tokens in this
+                // delegatecall.
+            encodedEnableModuleCall.length,
+            encodedEnableModuleCall
+        );
+
+        bytes memory multiSendData = abi.encodeWithSelector(
+            MultiSend_1_3_0.multiSend.selector,
+            bytes.concat(deployModuleMultiSendData, enableModuleMultiSendData)
+        );
+
+        return abi.encodeWithSelector(
+            GnosisSafe_1_3_0.setup.selector,
+            _owners,
+            _threshold,
+            _multiSend,
+            multiSendData,
+            _fallbackHandler,
+            // The following fields are for specifying an optional payment as part of the
+            // deployment. We don't use them.
+            address(0),
+            0,
+            address(0)
+        );
     }
 
     // Used off-chain to get the ABI of the `SphinxMerkleTree` struct.

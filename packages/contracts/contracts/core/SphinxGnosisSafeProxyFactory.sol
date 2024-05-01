@@ -16,7 +16,7 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
         moduleProxyFactory = ISphinxModuleProxyFactory(_moduleProxyFactory);
     }
 
-    function deployGnosisSafeWithSphinxModule(
+    function deployThenEnable(
         bytes memory _initCode, // TODO(docs): we pass in the bytecode so that it matches the
             // bytecode that would be deployed by Gnosis Safe's default proxy factory. if we deploy
             // the proxy directly from this contract, its bytecode will differ because of different
@@ -42,13 +42,13 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
 
         // TODO(docs): it's not strictly necessary to check this, but we do it anyways to provide a
         // useful error message if they've already been deployed.
-        require(moduleProxy.code.length == 0, "TODO(docs)");
-        require(safeProxy.code.length == 0, "TODO(docs)");
+        require(moduleProxy.code.length == 0, "SphinxGnosisSafeProxyFactory: module already deployed");
+        require(safeProxy.code.length == 0, "SphinxGnosisSafeProxyFactory: safe already deployed");
 
         Create2.deploy(0, salt, _initCode);
 
         (bool success,) = safeProxy.call(_initializer);
-        require(success, "TODO(docs)");
+        require(success, "SphinxGnosisSafeProxyFactory: initializer failed");
 
         // Check that the Sphinx Module proxy is deployed and that it's enabled in the Gnosis Safe
         // proxy. We don't need to check that the Gnosis Safe proxy is deployed because we deployed
