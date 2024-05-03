@@ -33,6 +33,7 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
         // cheaper than concatenating it.
         bytes32 salt = keccak256(abi.encodePacked(keccak256(_initializer), _saltNonce));
 
+        // TODO(later): we can't do Create2.computeAddress
         address safeProxy = Create2.computeAddress(salt, keccak256(_initCode));
         address moduleProxy = moduleProxyFactory.computeSphinxModuleProxyAddress(
             safeProxy,
@@ -68,3 +69,5 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
 
 // TODO(later-later): Test:
 // - Add the griefing vector as a test case.
+
+// TODO(later): zkSync

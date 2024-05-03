@@ -41,7 +41,7 @@ contract AbstractSphinxGnosisProxyFactory_Test is TestUtils, ISphinxGnosisSafePr
         helper_test_deployThenEnable({_saltNonce: 1});
     }
 
-    function test_deployThenEnable_success_
+    // function test_deployThenEnable_success_
 
     // TODO: caller's address does not impact deployed addresses. (add this as a high-level
     // invariant?)
