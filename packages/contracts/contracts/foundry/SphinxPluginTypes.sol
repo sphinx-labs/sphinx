@@ -100,7 +100,7 @@ struct FoundryDeploymentInfo {
     uint256 blockNumber;
     bytes safeInitData;
     bool requireSuccess;
-    SphinxConfig newConfig;
+    InternalSphinxConfig newConfig;
     ExecutionMode executionMode;
     InitialChainState initialState;
     bool arbitraryChain;
@@ -135,7 +135,13 @@ struct InitialChainState {
     bool isExecuting;
 }
 
-struct SphinxConfig {
+struct UserSphinxConfig {
+    string projectName;
+    string[] mainnets;
+    string[] testnets;
+}
+
+struct InternalSphinxConfig {
     string projectName;
     address[] owners;
     uint256 threshold;
@@ -193,6 +199,27 @@ struct SystemContractInfo {
 }
 
 /**
+ * @notice The DefaultSafe is the Gnosis Safe that is used by default when deploying with a project.
+ * In the future, we will likely support having multiple Safes that can be shared between different
+ * projects.
+ *
+ * Currently, we only support a 1-to-1 relationship between projects and Safes, so we only track the
+ * default Safe for each project.
+ */
+struct DefaultSafe {
+    address[] owners;
+    string safeName;
+    uint saltNonce;
+    uint threshold;
+}
+
+struct SphinxLockProject {
+    DefaultSafe defaultSafe;
+    string projectName;
+    string orgId;
+}
+
+/**
  * @notice Provides an easy way to get complex data types off-chain (via the ABI) without
  *         needing to hard-code them.
  */
@@ -236,7 +263,11 @@ contract SphinxPluginTypes {
         returns (FoundryDeploymentInfo[] memory deploymentInfoArray)
     { }
 
-    function sphinxConfigType() external view returns (SphinxConfig memory sphinxConfig) { }
+    function userSphinxConfigType()
+        external
+        view
+        returns (UserSphinxConfig memory userSphinxConfig)
+    {}
 
     function systemContractInfoArrayType()
         external

@@ -1,7 +1,7 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
-import { getDuplicateElements } from '@sphinx-labs/core'
+import { getDuplicateElements, syncSphinxLock } from '@sphinx-labs/core'
 
 import { init } from '../sample-project'
 import { SphinxContext, makeSphinxContext } from './context'
@@ -168,16 +168,16 @@ export const makeCLI = (
             type: 'string',
             demandOption: true,
           })
-          .option('owner', {
-            describe: 'The address of an account you own on live networks.',
+          .option('project', {
+            describe: 'Your project name from the Sphinx UI.',
             type: 'string',
             demandOption: true,
           })
           .hide('version'),
       async (argv) => {
-        const { orgId, sphinxApiKey, alchemyApiKey, owner } = argv
+        const { orgId, sphinxApiKey, alchemyApiKey, project } = argv
 
-        await init(orgId, sphinxApiKey, alchemyApiKey, owner)
+        await init(orgId, sphinxApiKey, alchemyApiKey, project)
       }
     )
     .command(
@@ -195,6 +195,31 @@ export const makeCLI = (
 
         const spinner = ora()
         await handleInstall(spinner)
+      }
+    )
+    .command(
+      'sync',
+      'Regenerates the sphinx.lock file',
+      (y) =>
+        y.usage('Usage: sphinx sync').option('org-id', {
+          describe: 'Your organization ID from the Sphinx UI.',
+          type: 'string',
+          demandOption: false,
+        }),
+      async (argv) => {
+        const { orgId } = argv
+        const apiKey = process.env.SPHINX_API_KEY
+        if (!apiKey) {
+          console.error(
+            "You must specify a 'SPHINX_API_KEY' environment variable."
+          )
+          process.exit(1)
+        }
+
+        const spinner = ora()
+        spinner.start('Syncing sphinx.lock...')
+        await syncSphinxLock(orgId, apiKey)
+        spinner.succeed('Sync complete')
       }
     )
     .command(

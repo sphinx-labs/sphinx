@@ -48,8 +48,8 @@ describe('Solidity Compiler', () => {
         'TEST_SPHINX_KEY',
         '--alchemy-api-key',
         'TEST_ALCHEMY_KEY',
-        '--owner',
-        '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+        '--project',
+        'My_First_Project',
       ],
       {
         SPHINX_INTERNAL_TEST__DEMO_TEST: 'true',

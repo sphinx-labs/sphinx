@@ -11,7 +11,7 @@ pragma solidity ^0.8.0;
  */
 import "../contracts/forge-std/src/Test.sol";
 
-import { Sphinx, Network, SphinxConfig } from "../contracts/foundry/Sphinx.sol";
+import { Sphinx, Network, UserSphinxConfig } from "../contracts/foundry/Sphinx.sol";
 import { IGnosisSafe } from "../contracts/foundry/interfaces/IGnosisSafe.sol";
 import { SystemContractInfo } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxTestUtils } from "./SphinxTestUtils.sol";
@@ -23,21 +23,17 @@ contract ScriptConfiguration_Test is Test, Sphinx, SphinxTestUtils {
     }
 
     function configureSphinx() public override {
-        sphinxConfig.projectName = "test_project";
-        sphinxConfig.threshold = 1;
-        sphinxConfig.orgId = "test-org-id";
-        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.projectName = "Simple_Project";
     }
 
-    function test_sphinxConfigABIEncoded_success_primaryConfigurationMethod() external {
-        bytes memory abiEncodedConfig = sphinxConfigABIEncoded();
-        (SphinxConfig memory config, address safeAddress, address moduleAddress) =
-            abi.decode(abiEncodedConfig, (SphinxConfig, address, address));
-        assertNotEq(safeAddress, address(0));
-        assertNotEq(moduleAddress, address(0));
-        assertEq(config.projectName, "test_project");
-        assertEq(config.owners[0], 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
-        assertEq(config.threshold, 1);
-        assertEq(config.orgId, "test-org-id");
+    function test_userSphinxConfigABIEncoded_success_primaryConfigurationMethod() external {
+        bytes memory abiEncodedConfig = userSphinxConfigABIEncoded();
+        (UserSphinxConfig memory config, address safeAddress, address moduleAddress) = abi.decode(
+            abiEncodedConfig,
+            (UserSphinxConfig, address, address)
+        );
+        assertEq(safeAddress, 0x6e667164e47986fF1108425153f32B02Fc2f5af2);
+        assertEq(moduleAddress, 0xc7758246BB22B2012C81459d7084f1A890374452);
+        assertEq(config.projectName, "Simple_Project");
     }
 }
