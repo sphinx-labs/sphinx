@@ -24,7 +24,7 @@ import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
  * @title SphinxModule
  * @notice The `SphinxModule` contains the logic that executes deployments in a Gnosis Safe and
  *         verifies that the Gnosis Safe owners have signed the Merkle root that contains
- *         the deployment.
+ *         the deployment. It also contains logic for cancelling active Merkle roots.
  *
  *         The `SphinxModule` exists as an implementation contract, which is delegatecalled
  *         by minimal, non-upgradeable EIP-1167 proxy contracts. We use this architecture
@@ -266,10 +266,13 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             (
                 address to,
                 uint256 value,
-                uint256 gas,
                 bytes memory txData,
-                Enum.Operation operation
-            ) = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation));
+                Enum.Operation operation,
+                bool requireIsContract
+            ) = abi.decode(leaf.data, (address, uint256, bytes, Enum.Operation, bool));
+
+            // If `requireIsContract` is `true`, check that the `to` field is a contract.
+            require(!requireIsContract || to.code.length > 0, "TODO(docs)");
 
             leavesExecuted += 1;
 
@@ -293,6 +296,16 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         }
     }
 
+    // TODO(later): add to interface
+    function activeMerkleRoot() external override view returns (bytes32) {
+        MerkleRootState memory state = merkleRootStates[latestMerkleRoot];
+        if (state.leavesExecuted != state.numLeaves) {
+            return latestMerkleRoot;
+        } else {
+            return bytes32(0);
+        }
+    }
+
     /**
      * @notice Hash a Merkle leaf. We do this before attempting to prove that the leaf
      *         belongs to a Merkle root. We double-hash the leaf to prevent second preimage attacks,
@@ -304,10 +317,3 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         return keccak256(abi.encodePacked(keccak256(abi.encode(_leaf))));
     }
 }
-
-
-// TODO(later): allow `executor == address(0)` to correspond to permissionless execution.
-// check with Ryan that this is fine with him. (The ManagedService isn't necessary).
-
-// TODO(later): Consider having a precondition checker for msg.value to replace the `execute`
-// leaf that we include when funding is involved with the deployment.
