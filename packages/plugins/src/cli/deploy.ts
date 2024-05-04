@@ -480,3 +480,14 @@ export const deploy = async (
     deploymentArtifacts,
   }
 }
+
+// TODO(later): add `executor == 0` in SphinxModule. i don't think this needs to relate to
+// arbitraryChains.
+
+// TODO(later): The following scenario seems to be possible. For the sake of simplicity, assume that
+// the V1 and V2 Merkle trees have the same `EXECUTE` leaf data encoding.
+// 1. Approve a migration Merkle tree.
+// 2. Execute the `APPROVE` leaf for the V1 module.
+// 3. Get the first `EXECUTE` leaf that's meant to be submitted in the V2 module. Execute it in the
+//    V1 module instead. This may not technically work because the ABI encoded `EXECUTE` leaf data
+//    is incompatible, but we shouldn't rely on this subtle difference to ensure security.
