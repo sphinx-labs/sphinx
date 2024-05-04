@@ -503,6 +503,9 @@ export const deploy = async (
 // TODO(later): migrations: could an analogous sus situation occur when migrating gnosis safe
 // singletons?
 
+// TODO(later): scenario for migrations: the V1 module's `EXECUTE` leaf/leaves have a `gas` amount
+// that's too low, causing the migration to fail or partially execute in the V1 module.
+
 // TODO(docs): Not sure if we should document this, but I'm leaving it here for posterity. To
 // migrate from the V1 module, I think we need to enable the V2 module then disable the V1 module in
 // two separate transactions. Here are our other two options, and why we shouldn't use them:
