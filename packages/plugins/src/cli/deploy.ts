@@ -491,3 +491,14 @@ export const deploy = async (
 // 3. Get the first `EXECUTE` leaf that's meant to be submitted in the V2 module. Execute it in the
 //    V1 module instead. This may not technically work because the ABI encoded `EXECUTE` leaf data
 //    is incompatible, but we shouldn't rely on this subtle difference to ensure security.
+
+// TODO(later): scenario for migrations: user enables/disables Sphinx Module by interacting directly
+// with their Gnosis Safe. It’s probably reasonable to just say that we assume user’s won’t do that.
+// However, that’s kind of weak. Examples:
+// - Two modules are enabled at the same
+// - Say they enable the v2 module without disabling the v1 module.
+
+// TODO(later): migrations: how can we make migrations smooth from v2 to v3, etc?
+
+// TODO(later): migrations: could an analogous sus situation occur when migrating gnosis safe
+// singletons?

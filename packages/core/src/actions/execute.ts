@@ -1407,3 +1407,6 @@ export const sphinxCoreExecute = {
 }
 
 // TODO(later): we need to handle failures differently now.
+
+// TODO(later): add the migration data to the relevant arrays. e.g. transaction receipts, batches,
+// etc.
