@@ -484,32 +484,31 @@ export const deploy = async (
 // TODO(later): add `executor == 0` in SphinxModule. i don't think this needs to relate to
 // arbitraryChains.
 
-// TODO(later): The following scenario seems to be possible. For the sake of simplicity, assume that
-// the V1 and V2 Merkle trees have the same `EXECUTE` leaf data encoding.
-// 1. Approve a migration Merkle tree.
-// 2. Execute the `APPROVE` leaf for the V1 module.
-// 3. Get the first `EXECUTE` leaf that's meant to be submitted in the V2 module. Execute it in the
-//    V1 module instead. This may not technically work because the ABI encoded `EXECUTE` leaf data
-//    is incompatible, but we shouldn't rely on this subtle difference to ensure security.
+// TODO(later): Include a `gas` field in the V2 module, and set it to be very high. not sure
+// if it can be `type(uint).max` because we may multiply it by 64/63 in the V1 module, and
+// i'm not sure what happens in that scenario.
 
-// TODO(later): scenario for migrations: user enables/disables Sphinx Module by interacting directly
-// with their Gnosis Safe. It’s probably reasonable to just say that we assume user’s won’t do that.
-// However, that’s kind of weak. Examples:
-// - Two modules are enabled at the same
-// - Say they enable the v2 module without disabling the v1 module.
-
-// TODO(later): migrations: how can we make migrations smooth from v2 to v3, etc?
-
-// TODO(later): migrations: could an analogous sus situation occur when migrating gnosis safe
-// singletons?
+// TODO(docs): Including the `moduleProxy` field in each leaf type will make future migration Merkle
+// trees (e.g. v2 to v3) easier to reason about. Specifically, this field will prevent `EXECUTE`
+// Merkle leaves from being executed in the wrong module.
 
 // TODO(later): scenario for migrations: the V1 module's `EXECUTE` leaf/leaves have a `gas` amount
 // that's too low, causing the migration to fail or partially execute in the V1 module.
 
-// TODO(docs): Not sure if we should document this, but I'm leaving it here for posterity. To
-// migrate from the V1 module, I think we need to enable the V2 module then disable the V1 module in
-// two separate transactions. Here are our other two options, and why we shouldn't use them:
+// TODO(docs): Design consideration: (outdated, but I think you should still consider documenting
+// the new design decision). To migrate from the V1 module, I think we need to enable the V2 module
+// then disable the V1 module in two separate transactions. Here are our other two options, and why
+// we shouldn't use them:
 // - Option 1: Multicall the enableModule and disableModule calls. Say the Multicall contract isn't
 //   deployed; the `EXECUTE` leaf will succeed, but the action won't be taken.
 // - Option 2: Disable the V1 module then enable the V2 module as two separate `EXECUTE` leaves.
 //   Doesn't work because we won't be able to enable the V2 module after the V1 module is disabled.
+
+// TODO(later): use `MultiSendCallOnly` for the `EXECUTE` leaf in the V1 module.
+
+// TODO(end): Audit Checklist Notion: Check if the file location of any headers in the spec files
+// has changed. If so, check that this didn't break any links.
+
+// TODO(later): I actually think the `APPROVE` leaf's `safeProxy` field is unnecessary because each
+// `moduleProxy` can only belong to a single `safeProxy`. Consider removing this field because I'm
+// against keeping fields for no reason. Its presence is more confusing than helpful.
