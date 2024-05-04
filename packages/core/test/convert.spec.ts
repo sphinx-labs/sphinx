@@ -20,11 +20,6 @@ import {
   sleep,
 } from '../src'
 
-// We filter out app chains because we expect the mainnet test to cover them adequately
-const fetchNonRollupStackChains = () => {
-  return SPHINX_NETWORKS.filter((network) => network.rollupStack === undefined)
-}
-
 describe('Convert EthersJS Objects', () => {
   const anvilPrivateKey =
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
@@ -82,6 +77,21 @@ describe('Convert EthersJS Objects', () => {
       '0x6a869d63d8c722ed2a4ec2f9af48ec3486f954a46b8f00a0b2ee4411c95f3b78',
     59141: '0x2c9b7cd04f5db3b6ab923dc8e8eabc256f1a1d15467df6014609109965b763fa',
     43: '0x8562f6585e1a345e6a09a214799f0f99ec63e36182da54d32f6e099ae90fe86c',
+    1918988905:
+      '0xa4cf88a9a354eaa9d7aa25ecc607a43cfdc4f82762254d72c4daea5a5899e47a',
+    1380012617:
+      '0x3536ea6046dbcb7b4e85dee0ebff92bca33d53d9defe4684e74a487721e1fb3c',
+    999999999:
+      '0x6d4b16783da5e871ccec22624fdca23417d47197e16c801a72bb10dea93d0ed2',
+    7777777:
+      '0x7f8617c8a7d54ed192c6eff8d995c383594359ff7ceab9584747409df471599d',
+    44: '0x723905edcb3c922b067761a20e4a0a005923a5572c337b6e3c12ba46da129c64',
+    46: '0x483c0f5829e55dbdadaba5fe3b93cc97c94a37a758662a14cd86800fa3c9785d',
+    3776: '0xb93fc47f2adc37eb3e5b9bb6c2e0349185f741c5545b30406190685ccf3cd5ab',
+    6038361:
+      '0x259bae5aca7e720526e70f78abf3ac4e286a02a3e169704a2e3767d76a50a019',
+    5000: '0x214392240c29f95c9e675e5d1995f76d145b93e674b6008ba714fd2e866a44c4',
+    5003: '0xf8293fc9c0490a5d194fea72742376b3d2f2272acf3a3d37d60b8973df69d492',
   }
 
   before(async () => {
@@ -114,7 +124,7 @@ describe('Convert EthersJS Objects', () => {
 
   it('contains a hash for each live supported network', () => {
     expect(Object.values(transactionHashes).length).equals(
-      Object.values(fetchNonRollupStackChains()).length
+      SPHINX_NETWORKS.length
     )
   })
 

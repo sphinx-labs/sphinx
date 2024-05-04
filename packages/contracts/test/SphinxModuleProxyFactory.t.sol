@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {
-    ISphinxModuleProxyFactory
-} from "../contracts/core/interfaces/ISphinxModuleProxyFactory.sol";
+import { ISphinxModuleProxyFactory } from
+    "../contracts/core/interfaces/ISphinxModuleProxyFactory.sol";
 import { SphinxModuleProxyFactory } from "../contracts/core/SphinxModuleProxyFactory.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
-import {
-    GnosisSafeProxyFactory
-} from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
+import { GnosisSafeProxyFactory } from
+    "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.t.sol";
 
 /**
- * @notice An abstract contract that contains all of the unit tests for the `SphinxModuleProxyFactory`.
+ * @notice An abstract contract that contains all of the unit tests for the
+ * `SphinxModuleProxyFactory`.
  *         This contract is inherited by four contracts, which are at the bottom of this file.
  *         Each of the four contracts is for testing a different type of Gnosis Safe against
  *         the `SphinxModuleProxyFactory`. These four Gnosis Safes are:
@@ -46,7 +45,9 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
         address _compatibilityFallbackHandler,
         address _gnosisSafeProxyFactory,
         address _gnosisSafeSingleton
-    ) internal {
+    )
+        internal
+    {
         moduleProxyFactory = new SphinxModuleProxyFactory();
 
         Wallet[] memory wallets = getSphinxWalletsSortedByAddress(5);
@@ -74,9 +75,7 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
             payable(
                 address(
                     GnosisSafeProxyFactory(_gnosisSafeProxyFactory).createProxyWithNonce(
-                        _gnosisSafeSingleton,
-                        safeInitializerData,
-                        0
+                        _gnosisSafeSingleton, safeInitializerData, 0
                     )
                 )
             )
@@ -111,10 +110,7 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
         helper_test_deploySphinxModuleProxy({ _saltNonce: 0, _caller: address(this) });
 
         vm.expectRevert("ERC1167: create2 failed");
-        moduleProxyFactory.deploySphinxModuleProxy({
-            _safeProxy: address(safeProxy),
-            _saltNonce: 0
-        });
+        moduleProxyFactory.deploySphinxModuleProxy({ _safeProxy: address(safeProxy), _saltNonce: 0 });
     }
 
     // A successful call must:
@@ -129,15 +125,11 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
 
     // Must be possible to deploy more than one `SphinxModuleProxy` for a given caller.
     function test_deploySphinxModuleProxy_success_deployMultiple() external {
-        SphinxModule module1 = helper_test_deploySphinxModuleProxy({
-            _saltNonce: 0,
-            _caller: address(this)
-        });
+        SphinxModule module1 =
+            helper_test_deploySphinxModuleProxy({ _saltNonce: 0, _caller: address(this) });
 
-        SphinxModule module2 = helper_test_deploySphinxModuleProxy({
-            _saltNonce: 1,
-            _caller: address(this)
-        });
+        SphinxModule module2 =
+            helper_test_deploySphinxModuleProxy({ _saltNonce: 1, _caller: address(this) });
         assertTrue(address(module1) != address(module2));
     }
 
@@ -202,10 +194,8 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
         });
         assertEq(expectedModuleAddress.code.length, 0);
 
-        SphinxModule moduleProxy = helper_test_deploySphinxModuleProxy({
-            _saltNonce: 0,
-            _caller: caller
-        });
+        SphinxModule moduleProxy =
+            helper_test_deploySphinxModuleProxy({ _saltNonce: 0, _caller: caller });
 
         assertGt(address(moduleProxy).code.length, 0);
         assertEq(address(moduleProxy), expectedModuleAddress);
@@ -216,7 +206,10 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
     function helper_test_deploySphinxModuleProxy(
         uint256 _saltNonce,
         address _caller
-    ) internal returns (SphinxModule) {
+    )
+        internal
+        returns (SphinxModule)
+    {
         address expectedModuleAddress = moduleProxyFactory.computeSphinxModuleProxyAddress({
             _safeProxy: address(safeProxy),
             _caller: _caller,
@@ -243,9 +236,10 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
         return SphinxModule(moduleProxy);
     }
 
-    function helper_test_deploySphinxModuleProxyFromSafe(
-        uint256 _saltNonce
-    ) internal returns (SphinxModule) {
+    function helper_test_deploySphinxModuleProxyFromSafe(uint256 _saltNonce)
+        internal
+        returns (SphinxModule)
+    {
         address expectedModuleAddress = moduleProxyFactory.computeSphinxModuleProxyAddress({
             _safeProxy: address(safeProxy),
             _caller: address(safeProxy),
@@ -269,9 +263,8 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
     }
 
     function helper_test_enableSphinxModule(uint256 _saltNonce) internal {
-        SphinxModule moduleProxy = helper_test_deploySphinxModuleProxyFromSafe({
-            _saltNonce: _saltNonce
-        });
+        SphinxModule moduleProxy =
+            helper_test_deploySphinxModuleProxyFromSafe({ _saltNonce: _saltNonce });
         assertFalse(safeProxy.isModuleEnabled(address(moduleProxy)));
 
         // We enable the `SphinxModuleProxy` by creating a transaction that's signed by the Gnosis
@@ -283,8 +276,7 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
         // `adddress(this)`, we must call another contract. So, we call the Gnosis Safe, which then
         // delegatecalls into the `SphinxModuleProxyFactory`.
         bytes memory encodedDelegateCall = abi.encodeWithSelector(
-            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
-            (_saltNonce)
+            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector, (_saltNonce)
         );
         GnosisSafeTransaction memory gnosisSafeTxn = GnosisSafeTransaction({
             to: address(moduleProxyFactory),
@@ -320,18 +312,27 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
         address _safeProxy,
         address _caller,
         uint256 _saltNonce
-    ) external view override returns (address) {}
+    )
+        external
+        view
+        override
+        returns (address)
+    { }
 
     function deploySphinxModuleProxy(
         address _safeProxy,
         uint256 _saltNonce
-    ) external override returns (address sphinxModule) {}
+    )
+        external
+        override
+        returns (address sphinxModule)
+    { }
 
-    function deploySphinxModuleProxyFromSafe(uint256 _saltNonce) external override {}
+    function deploySphinxModuleProxyFromSafe(uint256 _saltNonce) external override { }
 
-    function enableSphinxModuleProxyFromSafe(uint256 _saltNonce) external override {}
+    function enableSphinxModuleProxyFromSafe(uint256 _saltNonce) external override { }
 
-    function SPHINX_MODULE_IMPL() external view override returns (address) {}
+    function SPHINX_MODULE_IMPL() external view override returns (address) { }
 }
 
 contract SphinxModuleProxyFactory_GnosisSafe_L1_1_3_0_Test is

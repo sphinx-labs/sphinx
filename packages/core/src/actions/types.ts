@@ -107,11 +107,10 @@ export type ContractInfo = {
 }
 
 export type EstimateGasTransactionData = {
-  to: string | null
+  to: string
   from: string
   data: string
   gasLimit: string
-  gasPrice: string
   value: string
   chainId: string
 }
@@ -160,19 +159,16 @@ export type ProposalRequest = {
   apiKey: string
   orgId: string
   isTestnet: boolean
-  owners: string[]
-  threshold: number
   safeAddress: string
   moduleAddress: string
-  safeInitData: string
-  safeInitSaltNonce: string
-  deploymentName: string
+  projectName: string
   chainIds: Array<number>
   projectDeployments: Array<ProjectDeployment>
   gasEstimates: Array<NetworkGasEstimate>
   diff: SphinxPreview
   compilerConfigId: string | undefined
   deploymentConfigId: string | undefined
+  sphinxPluginVersion: string | undefined
   tree: {
     root: string
     chainStatus: Array<{

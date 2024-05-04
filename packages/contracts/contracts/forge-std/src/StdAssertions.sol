@@ -120,7 +120,10 @@ abstract contract StdAssertions is DSTest {
         uint256 b,
         uint256 maxDelta,
         string memory err
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         uint256 delta = stdMath.delta(a, b);
 
         if (delta > maxDelta) {
@@ -134,7 +137,10 @@ abstract contract StdAssertions is DSTest {
         uint256 b,
         uint256 maxDelta,
         uint256 decimals
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         uint256 delta = stdMath.delta(a, b);
 
         if (delta > maxDelta) {
@@ -153,7 +159,10 @@ abstract contract StdAssertions is DSTest {
         uint256 maxDelta,
         uint256 decimals,
         string memory err
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         uint256 delta = stdMath.delta(a, b);
 
         if (delta > maxDelta) {
@@ -180,7 +189,10 @@ abstract contract StdAssertions is DSTest {
         int256 b,
         uint256 maxDelta,
         string memory err
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         uint256 delta = stdMath.delta(a, b);
 
         if (delta > maxDelta) {
@@ -194,7 +206,10 @@ abstract contract StdAssertions is DSTest {
         int256 b,
         uint256 maxDelta,
         uint256 decimals
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         uint256 delta = stdMath.delta(a, b);
 
         if (delta > maxDelta) {
@@ -213,7 +228,10 @@ abstract contract StdAssertions is DSTest {
         uint256 maxDelta,
         uint256 decimals,
         string memory err
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         uint256 delta = stdMath.delta(a, b);
 
         if (delta > maxDelta) {
@@ -226,7 +244,10 @@ abstract contract StdAssertions is DSTest {
         uint256 a,
         uint256 b,
         uint256 maxPercentDelta // An 18 decimal fixed point number, where 1e18 == 100%
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (b == 0) return assertEq(a, b); // If the left is 0, right must be too.
 
         uint256 percentDelta = stdMath.percentDelta(a, b);
@@ -246,7 +267,10 @@ abstract contract StdAssertions is DSTest {
         uint256 b,
         uint256 maxPercentDelta, // An 18 decimal fixed point number, where 1e18 == 100%
         string memory err
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (b == 0) return assertEq(a, b, err); // If the left is 0, right must be too.
 
         uint256 percentDelta = stdMath.percentDelta(a, b);
@@ -262,7 +286,10 @@ abstract contract StdAssertions is DSTest {
         uint256 b,
         uint256 maxPercentDelta, // An 18 decimal fixed point number, where 1e18 == 100%
         uint256 decimals
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (b == 0) return assertEq(a, b); // If the left is 0, right must be too.
 
         uint256 percentDelta = stdMath.percentDelta(a, b);
@@ -283,7 +310,10 @@ abstract contract StdAssertions is DSTest {
         uint256 maxPercentDelta, // An 18 decimal fixed point number, where 1e18 == 100%
         uint256 decimals,
         string memory err
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (b == 0) return assertEq(a, b, err); // If the left is 0, right must be too.
 
         uint256 percentDelta = stdMath.percentDelta(a, b);
@@ -314,7 +344,10 @@ abstract contract StdAssertions is DSTest {
         int256 b,
         uint256 maxPercentDelta,
         string memory err
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (b == 0) return assertEq(a, b, err); // If the left is 0, right must be too.
 
         uint256 percentDelta = stdMath.percentDelta(a, b);
@@ -330,7 +363,10 @@ abstract contract StdAssertions is DSTest {
         int256 b,
         uint256 maxPercentDelta,
         uint256 decimals
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (b == 0) return assertEq(a, b); // If the left is 0, right must be too.
 
         uint256 percentDelta = stdMath.percentDelta(a, b);
@@ -351,7 +387,10 @@ abstract contract StdAssertions is DSTest {
         uint256 maxPercentDelta,
         uint256 decimals,
         string memory err
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (b == 0) return assertEq(a, b, err); // If the left is 0, right must be too.
 
         uint256 percentDelta = stdMath.percentDelta(a, b);
@@ -366,7 +405,10 @@ abstract contract StdAssertions is DSTest {
         address target,
         bytes memory callDataA,
         bytes memory callDataB
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         assertEqCall(target, callDataA, target, callDataB, true);
     }
 
@@ -375,7 +417,10 @@ abstract contract StdAssertions is DSTest {
         bytes memory callDataA,
         address targetB,
         bytes memory callDataB
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         assertEqCall(targetA, callDataA, targetB, callDataB, true);
     }
 
@@ -384,7 +429,10 @@ abstract contract StdAssertions is DSTest {
         bytes memory callDataA,
         bytes memory callDataB,
         bool strictRevertData
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         assertEqCall(target, callDataA, target, callDataB, strictRevertData);
     }
 
@@ -394,7 +442,10 @@ abstract contract StdAssertions is DSTest {
         address targetB,
         bytes memory callDataB,
         bool strictRevertData
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         (bool successA, bytes memory returnDataA) = address(targetA).call(callDataA);
         (bool successB, bytes memory returnDataB) = address(targetB).call(callDataB);
 

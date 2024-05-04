@@ -22,7 +22,11 @@ library StdStyle {
     function styleConcat(
         string memory style,
         string memory self
-    ) private pure returns (string memory) {
+    )
+        private
+        pure
+        returns (string memory)
+    {
         return string(abi.encodePacked(style, self, RESET));
     }
 

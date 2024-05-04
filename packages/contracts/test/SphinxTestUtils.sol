@@ -5,17 +5,16 @@ import { Vm, VmSafe } from "../contracts/forge-std/src/Vm.sol";
 import {
     Network,
     NetworkInfo,
-    SphinxConfig,
     FoundryDeploymentInfo,
-    ParsedAccountAccess
+    ParsedAccountAccess,
+    SphinxLockProject
 } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "../contracts/forge-std/src/StdCheats.sol";
 
 import { SphinxConstants } from "../contracts/foundry/SphinxConstants.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
-import {
-    IGnosisSafeProxyFactory
-} from "../contracts/foundry/interfaces/IGnosisSafeProxyFactory.sol";
+import { IGnosisSafeProxyFactory } from
+    "../contracts/foundry/interfaces/IGnosisSafeProxyFactory.sol";
 import { IGnosisSafeProxy } from "../contracts/foundry/interfaces/IGnosisSafeProxy.sol";
 import { IGnosisSafe } from "../contracts/foundry/interfaces/IGnosisSafe.sol";
 import { SphinxInitCode, SystemContractInfo } from "./SphinxInitCode.sol";
@@ -54,9 +53,11 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
     bytes32 public constant EIP1967_IMPLEMENTATION_KEY =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-    function readAnvilBroadcastedTxns(
-        string memory _path
-    ) internal view returns (AnvilBroadcastedTxn[] memory) {
+    function readAnvilBroadcastedTxns(string memory _path)
+        internal
+        view
+        returns (AnvilBroadcastedTxn[] memory)
+    {
         string memory deployData = vm.readFile(_path);
         uint256 numTxns = vm.parseJsonStringArray(deployData, ".transactions").length;
         AnvilBroadcastedTxn[] memory txns = new AnvilBroadcastedTxn[](numTxns);
@@ -98,9 +99,8 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
             revert("SphinxTestUtils: unknown network");
         }
 
-        string memory rpcUrl = string(
-            abi.encodePacked("https://", networkUrlStr, ".g.alchemy.com/v2/", alchemyAPIKey)
-        );
+        string memory rpcUrl =
+            string(abi.encodePacked("https://", networkUrlStr, ".g.alchemy.com/v2/", alchemyAPIKey));
         vm.createSelectFork(rpcUrl);
     }
 
@@ -138,32 +138,28 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
     function readAnvilBroadcastedTxn(
         string memory _path,
         uint256 _index
-    ) internal view returns (AnvilBroadcastedTxn memory) {
+    )
+        internal
+        view
+        returns (AnvilBroadcastedTxn memory)
+    {
         string memory deployData = vm.readFile(_path);
         string memory key = string(abi.encodePacked(".transactions[", vm.toString(_index), "]"));
         bytes32 hash = vm.parseJsonBytes32(deployData, string(abi.encodePacked(key, ".hash")));
-        string memory opcode = vm.parseJsonString(
-            deployData,
-            string(abi.encodePacked(key, ".transactionType"))
-        );
-        string memory contractName = vm.parseJsonString(
-            deployData,
-            string(abi.encodePacked(key, ".contractName"))
-        );
-        string memory functionSig = vm.parseJsonString(
-            deployData,
-            string(abi.encodePacked(key, ".function"))
-        );
+        string memory opcode =
+            vm.parseJsonString(deployData, string(abi.encodePacked(key, ".transactionType")));
+        string memory contractName =
+            vm.parseJsonString(deployData, string(abi.encodePacked(key, ".contractName")));
+        string memory functionSig =
+            vm.parseJsonString(deployData, string(abi.encodePacked(key, ".function")));
 
         // Parse the `arguments` array. Since this field may be `null` in the JSON, we can't use
         // `vm.parseJsonStringArray` right away. Instead, we must first check if the returned
         // `argumentsBytes` is a 32-byte array of zeros, which is how `null` is encoded.
-        bytes memory argumentsBytes = vm.parseJson(
-            deployData,
-            string(abi.encodePacked(key, ".arguments"))
-        );
-        string[] memory arguments = argumentsBytes.length == 32 &&
-            toBytes32(argumentsBytes) == bytes32(0)
+        bytes memory argumentsBytes =
+            vm.parseJson(deployData, string(abi.encodePacked(key, ".arguments")));
+        string[] memory arguments = argumentsBytes.length == 32
+            && toBytes32(argumentsBytes) == bytes32(0)
             ? new string[](0)
             : vm.parseJsonStringArray(deployData, string(abi.encodePacked(key, ".arguments")));
 
@@ -172,35 +168,37 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
             (RawTx1559Detail)
         );
         address[] memory additionalContracts = vm.parseJsonAddressArray(
-            deployData,
-            string(abi.encodePacked(key, ".additionalContracts"))
+            deployData, string(abi.encodePacked(key, ".additionalContracts"))
         );
-        bool isFixedGasLimit = vm.parseJsonBool(
-            deployData,
-            string(abi.encodePacked(key, ".isFixedGasLimit"))
-        );
-        return
-            AnvilBroadcastedTxn({
-                additionalContracts: additionalContracts,
-                arguments: arguments,
-                contractAddress: txDetail.to,
-                contractName: contractName,
-                functionSig: functionSig,
-                hash: hash,
-                isFixedGasLimit: isFixedGasLimit,
-                txDetail: txDetail,
-                opcode: opcode
-            });
+        bool isFixedGasLimit =
+            vm.parseJsonBool(deployData, string(abi.encodePacked(key, ".isFixedGasLimit")));
+        return AnvilBroadcastedTxn({
+            additionalContracts: additionalContracts,
+            arguments: arguments,
+            contractAddress: txDetail.to,
+            contractName: contractName,
+            functionSig: functionSig,
+            hash: hash,
+            isFixedGasLimit: isFixedGasLimit,
+            txDetail: txDetail,
+            opcode: opcode
+        });
     }
 
-    // Workaround for converting bytes memory to bytes calldata which is necessary to use index slicing
-    // If we call this with this.sliceBytes(bytes memory) then the input is converted to bytes calldata
+    // Workaround for converting bytes memory to bytes calldata which is necessary to use index
+    // slicing
+    // If we call this with this.sliceBytes(bytes memory) then the input is converted to bytes
+    // calldata
     // and properly sliced
     function sliceBytes(
         bytes calldata b,
         uint256 start,
         uint256 end
-    ) public pure returns (bytes memory) {
+    )
+        public
+        pure
+        returns (bytes memory)
+    {
         return b[start:end];
     }
 
@@ -208,19 +206,20 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
      * @notice Executes a single transaction that deploys a Gnosis Safe, deploys a Sphinx Module,
      *         and enables the Sphinx Module in the Gnosis Safe
      */
-    function deploySphinxModuleAndGnosisSafe(
-        SphinxConfig memory _config
-    ) public returns (IGnosisSafe) {
+    function deploySphinxModuleAndGnosisSafe() public returns (IGnosisSafe) {
         IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(safeFactoryAddress);
 
-        bytes memory safeInitializerData = getGnosisSafeInitializerData(address(this));
+        (
+            bytes memory safeInitializerData,
+            SphinxLockProject memory project
+        ) = getGnosisSafeInitializerData(address(this));
 
         // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
         // and enables the Sphinx Module in the Gnosis Safe.
         IGnosisSafeProxy safeProxy = safeProxyFactory.createProxyWithNonce(
             safeSingletonAddress,
             safeInitializerData,
-            _config.saltNonce
+            project.defaultSafe.saltNonce
         );
 
         return IGnosisSafe(address(safeProxy));
@@ -229,7 +228,11 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
     /**
      * @notice Returns the stringified `AccountAccessKind`. Useful for debugging.
      */
-    function accessKindToString(VmSafe.AccountAccessKind kind) public pure returns (string memory) {
+    function accessKindToString(VmSafe.AccountAccessKind kind)
+        public
+        pure
+        returns (string memory)
+    {
         if (kind == VmSafe.AccountAccessKind.Call) return "Call";
         if (kind == VmSafe.AccountAccessKind.DelegateCall) return "DelegateCall";
         if (kind == VmSafe.AccountAccessKind.CallCode) return "CallCode";
@@ -246,19 +249,19 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
     }
 
     /**
-     * @notice Decodes and returns the ParsedAccountAccess array in the passed in FoundryDeploymentInfo struct.
+     * @notice Decodes and returns the ParsedAccountAccess array in the passed in
+     * FoundryDeploymentInfo struct.
      */
-    function decodeParsedAccountAcccesses(
-        FoundryDeploymentInfo memory _deploymentInfo
-    ) public pure returns (ParsedAccountAccess[] memory) {
-        ParsedAccountAccess[] memory parsedAccesses = new ParsedAccountAccess[](
-            _deploymentInfo.encodedAccountAccesses.length
-        );
+    function decodeParsedAccountAcccesses(FoundryDeploymentInfo memory _deploymentInfo)
+        public
+        pure
+        returns (ParsedAccountAccess[] memory)
+    {
+        ParsedAccountAccess[] memory parsedAccesses =
+            new ParsedAccountAccess[](_deploymentInfo.encodedAccountAccesses.length);
         for (uint256 i = 0; i < parsedAccesses.length; i++) {
-            parsedAccesses[i] = abi.decode(
-                _deploymentInfo.encodedAccountAccesses[i],
-                (ParsedAccountAccess)
-            );
+            parsedAccesses[i] =
+                abi.decode(_deploymentInfo.encodedAccountAccesses[i], (ParsedAccountAccess));
         }
 
         return parsedAccesses;

@@ -25,10 +25,7 @@ contract ManagedService is AccessControl, ReentrancyGuard {
      * @param dataHash A keccak256 hash of the input data.
      */
     event Called(
-        address indexed relayer,
-        address payable indexed to,
-        uint256 value,
-        bytes32 indexed dataHash
+        address indexed relayer, address payable indexed to, uint256 value, bytes32 indexed dataHash
     );
 
     /**
@@ -55,7 +52,13 @@ contract ManagedService is AccessControl, ReentrancyGuard {
     function exec(
         address payable _to,
         bytes calldata _data
-    ) public payable nonReentrant onlyRole(RELAYER_ROLE) returns (bytes memory) {
+    )
+        public
+        payable
+        nonReentrant
+        onlyRole(RELAYER_ROLE)
+        returns (bytes memory)
+    {
         require(_to != address(0), "ManagedService: target is address(0)");
 
         emit Called(msg.sender, _to, msg.value, keccak256(_data));

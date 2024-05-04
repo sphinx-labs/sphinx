@@ -25,7 +25,8 @@ interface IERC20 {
     function allowance(address owner, address spender) external view returns (uint256);
 
     /// @notice Sets `amount` as the allowance of `spender` over the caller's tokens.
-    /// @dev Be aware of front-running risks: https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+    /// @dev Be aware of front-running risks:
+    /// https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
     function approve(address spender, uint256 amount) external returns (bool);
 
     /// @notice Moves `amount` tokens from `from` to `to` using the allowance mechanism.

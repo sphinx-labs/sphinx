@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// We chose not to use any remappings when importing the standard forge library. This is because when our library is installed in
-// the users project we will be subject to their configured remappings. Bugs can also occur if we rely on the users installation of
-// forge-std which may not be the same exact version our library expects. To resolve both of these issues, we install the version of
-// forge-std we need ourself. We then reference it using a relative import instead of a remapping because that prevents the user from
+// We chose not to use any remappings when importing the standard forge library. This is because
+// when our library is installed in
+// the users project we will be subject to their configured remappings. Bugs can also occur if we
+// rely on the users installation of
+// forge-std which may not be the same exact version our library expects. To resolve both of these
+// issues, we install the version of
+// forge-std we need ourself. We then reference it using a relative import instead of a remapping
+// because that prevents the user from
 // having to define a separate remapping just for our installation of forge-std.
 import { VmSafe, Vm } from "../../contracts/forge-std/src/Vm.sol";
 
@@ -14,14 +18,13 @@ import {
     SphinxMerkleTree,
     HumanReadableAction,
     Network,
-    SphinxConfig,
     FoundryDeploymentInfo,
     NetworkInfo,
     Wallet,
     GnosisSafeTransaction,
     ExecutionMode,
     SystemContractInfo,
-    ParsedAccountAccess
+    UserSphinxConfig
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
@@ -53,7 +56,7 @@ abstract contract Sphinx {
      * @dev The configuration options for the user's project. This variable must have `internal`
      *      visibility so that the user can set fields on it.
      */
-    SphinxConfig public sphinxConfig;
+    UserSphinxConfig public sphinxConfig;
 
     SphinxConstants private constants;
 
@@ -62,9 +65,12 @@ abstract contract Sphinx {
     bool private sphinxModifierEnabled;
 
     /**
-     * @dev Tracks the amount of funding we need to transfer to the safe at the beginning of the deployment
-     *      We use a mapping for this and for the Safe starting balance because the user may have a complex
-     *      script that forks multiple different networks internally. See the `test_fundSafe_success_multifork`
+     * @dev Tracks the amount of funding we need to transfer to the safe at the beginning of the
+     * deployment
+     *      We use a mapping for this and for the Safe starting balance because the user may have a
+     * complex
+     *      script that forks multiple different networks internally. See the
+     * `test_fundSafe_success_multifork`
      *      test in Sphinx.t.sol for an example of this case.
      *      chain => funds requested
      */
@@ -93,13 +99,14 @@ abstract contract Sphinx {
      * from SphinxUtils to fetch the config. If we just called `sphinxConfig` directly, the dynamic
      * arrays would not be included in the return value.
      *
-     * This is an external function because it is only intended to be used by the SphinxUtils contract
+     * This is an external function because it is only intended to be used by the SphinxUtils
+     * contract
      * for fetching the unvalidated config from the sphinxConfig state variable.
      *
      * When fetching the config for normal usage in this contract, we should use the
      * `sphinxUtils.fetchAndValidateConfig()` function.
      */
-    function sphinxFetchConfig() external view returns (SphinxConfig memory) {
+    function sphinxFetchConfig() external view returns (UserSphinxConfig memory) {
         return sphinxConfig;
     }
 
@@ -132,7 +139,10 @@ abstract contract Sphinx {
         bytes memory _scriptFunctionCalldata,
         string memory _deploymentInfoPath,
         uint64 _callDepth
-    ) external returns (FoundryDeploymentInfo memory) {
+    )
+        external
+        returns (FoundryDeploymentInfo memory)
+    {
         sphinxUtils.validateProposal(address(this));
 
         FoundryDeploymentInfo memory deploymentInfo = sphinxCollect(
@@ -143,8 +153,7 @@ abstract contract Sphinx {
         );
 
         vm.writeFile(
-            _deploymentInfoPath,
-            sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
+            _deploymentInfoPath, sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
         );
 
         return deploymentInfo;
@@ -155,10 +164,12 @@ abstract contract Sphinx {
         ExecutionMode _executionMode,
         string memory _deploymentInfoPath,
         string memory _systemContractsFilePath
-    ) external {
+    )
+        external
+    {
         address deployer;
         if (_executionMode == ExecutionMode.LiveNetworkCLI) {
-            sphinxUtils.validateLiveNetworkCLI(sphinxConfig, IGnosisSafe(safeAddress()));
+            sphinxUtils.validateLiveNetworkCLI(IGnosisSafe(safeAddress()), address(this));
             deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         } else if (_executionMode == ExecutionMode.LocalNetworkCLI) {
             // Set the `ManagedService` contract as the deployer. Although this isn't strictly
@@ -169,10 +180,8 @@ abstract contract Sphinx {
             revert("Incorrect execution type.");
         }
 
-        SystemContractInfo[] memory systemContracts = abi.decode(
-            vm.parseBytes(vm.readFile(_systemContractsFilePath)),
-            (SystemContractInfo[])
-        );
+        SystemContractInfo[] memory systemContracts =
+            abi.decode(vm.parseBytes(vm.readFile(_systemContractsFilePath)), (SystemContractInfo[]));
 
         // Deploy the Sphinx system contracts. This is necessary because several Sphinx and Gnosis
         // Safe contracts are required to deploy a Gnosis Safe, which itself must be deployed
@@ -180,15 +189,10 @@ abstract contract Sphinx {
         // Gnosis Safe ensures that its nonce is treated like a contract instead of an EOA.
         sphinxUtils.deploySphinxSystem(systemContracts);
 
-        FoundryDeploymentInfo memory deploymentInfo = sphinxCollect(
-            _executionMode,
-            deployer,
-            _scriptFunctionCalldata,
-            2
-        );
+        FoundryDeploymentInfo memory deploymentInfo =
+            sphinxCollect(_executionMode, deployer, _scriptFunctionCalldata, 2);
         vm.writeFile(
-            _deploymentInfoPath,
-            sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
+            _deploymentInfoPath, sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
         );
     }
 
@@ -197,23 +201,24 @@ abstract contract Sphinx {
         address _executor,
         bytes memory _scriptFunctionCalldata,
         uint64 _callDepth
-    ) private returns (FoundryDeploymentInfo memory) {
+    )
+        private
+        returns (FoundryDeploymentInfo memory)
+    {
         address safe = safeAddress();
 
         FoundryDeploymentInfo memory deploymentInfo = sphinxUtils.initializeDeploymentInfo(
-            sphinxConfig,
-            _executionMode,
-            _executor,
-            address(this)
+            sphinxConfig, _executionMode, _executor, address(this)
         );
 
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
         // going to call the Gnosis Safe to estimate the gas.
-        // This also also ensures that the safe's nonce is incremented as a contract instead of an EOA.
+        // This also also ensures that the safe's nonce is incremented as a contract instead of an
+        // EOA.
         if (address(safe).code.length == 0) {
             sphinxUtils.deployModuleAndGnosisSafe(
-                sphinxConfig.owners,
-                sphinxConfig.threshold,
+                deploymentInfo.newConfig.owners,
+                deploymentInfo.newConfig.threshold,
                 safe
             );
         }
@@ -230,7 +235,7 @@ abstract contract Sphinx {
 
         vm.startStateDiffRecording();
         // Delegatecall the entry point function on this contract to collect the transactions.
-        (bool success, ) = address(this).delegatecall(_scriptFunctionCalldata);
+        (bool success,) = address(this).delegatecall(_scriptFunctionCalldata);
         // Throw an error if the deployment script fails. The error message in the user's script is
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
@@ -251,8 +256,7 @@ abstract contract Sphinx {
 
         // Check that the amount of funds requested for the Safe is valid
         sphinxUtils.checkValidSafeFundingRequest(
-            deploymentInfo.fundsRequestedForSafe,
-            deploymentInfo.chainId
+            deploymentInfo.fundsRequestedForSafe, deploymentInfo.chainId
         );
 
         vm.revertTo(snapshotId);
@@ -262,13 +266,14 @@ abstract contract Sphinx {
     }
 
     /**
-     * @notice A modifier that the user must include on their entry point function when using Sphinx.
+     * @notice A modifier that the user must include on their entry point function when using
+     * Sphinx.
      *         This modifier mainly performs validation on the user's configuration and environment.
      */
     modifier sphinx() {
         sphinxModifierEnabled = true;
 
-        (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
+        (VmSafe.CallerMode callerMode, address msgSender,) = vm.readCallers();
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
             "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
@@ -327,7 +332,7 @@ abstract contract Sphinx {
      * deployment. _to.call{value: _amount} or transfer() can be used to transfer value
      * from the Safe to other addresses.
      */
-    function fundSafe(uint _value) public {
+    function fundSafe(uint256 _value) public {
         fundsRequestedForSafe[block.chainid] += _value;
 
         // Update the balance of the safe to equal to Safe's current balance + the
@@ -353,8 +358,8 @@ abstract contract Sphinx {
      *         off-chain. We ABI encode the config because it's difficult to decode complex
      *         data types that are returned by invoking Forge scripts.
      */
-    function sphinxConfigABIEncoded() public returns (bytes memory) {
-        SphinxConfig memory config = sphinxUtils.fetchAndValidateConfig(address(this));
+    function userSphinxConfigABIEncoded() public returns (bytes memory) {
+        UserSphinxConfig memory config = sphinxUtils.fetchAndValidateConfig(address(this));
         return abi.encode(config, safeAddress(), sphinxModule());
     }
 }

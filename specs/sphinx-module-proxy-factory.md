@@ -35,6 +35,8 @@ Anybody can call the `SphinxModuleProxyFactory`'s `deploySphinxModuleProxy` func
 
 ### 2. Deploy a Gnosis Safe and enable a `SphinxModuleProxy` in a single transaction
 
+TODO(later): update this section and potentially others in this spec.
+
 It must be possible to submit a single transaction that:
 1. Deploys a Gnosis Safe at a deterministic address
 2. Deploys a `SphinxModuleProxy` at a deterministic address

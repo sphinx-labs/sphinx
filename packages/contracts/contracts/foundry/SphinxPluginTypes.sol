@@ -100,15 +100,15 @@ struct FoundryDeploymentInfo {
     uint256 blockNumber;
     bytes safeInitData;
     bool requireSuccess;
-    SphinxConfig newConfig;
+    InternalSphinxConfig newConfig;
     ExecutionMode executionMode;
     InitialChainState initialState;
     bool arbitraryChain;
     string sphinxLibraryVersion;
     bytes[] encodedAccountAccesses;
     uint256[] gasEstimates;
-    uint fundsRequestedForSafe;
-    uint safeStartingBalance;
+    uint256 fundsRequestedForSafe;
+    uint256 safeStartingBalance;
 }
 
 enum ExecutionMode {
@@ -135,7 +135,13 @@ struct InitialChainState {
     bool isExecuting;
 }
 
-struct SphinxConfig {
+struct UserSphinxConfig {
+    string projectName;
+    string[] mainnets;
+    string[] testnets;
+}
+
+struct InternalSphinxConfig {
     string projectName;
     address[] owners;
     uint256 threshold;
@@ -193,6 +199,27 @@ struct SystemContractInfo {
 }
 
 /**
+ * @notice The DefaultSafe is the Gnosis Safe that is used by default when deploying with a project.
+ * In the future, we will likely support having multiple Safes that can be shared between different
+ * projects.
+ *
+ * Currently, we only support a 1-to-1 relationship between projects and Safes, so we only track the
+ * default Safe for each project.
+ */
+struct DefaultSafe {
+    address[] owners;
+    string safeName;
+    uint saltNonce;
+    uint threshold;
+}
+
+struct SphinxLockProject {
+    DefaultSafe defaultSafe;
+    string projectName;
+    string orgId;
+}
+
+/**
  * @notice Provides an easy way to get complex data types off-chain (via the ABI) without
  *         needing to hard-code them.
  */
@@ -201,13 +228,13 @@ contract SphinxPluginTypes {
         external
         pure
         returns (SphinxMerkleTree memory merkleTreeType)
-    {}
+    { }
 
     function humanReadableActionsType()
         external
         pure
         returns (HumanReadableAction[] memory humanReadableActions)
-    {}
+    { }
 
     function deployTaskInputsType()
         external
@@ -216,43 +243,47 @@ contract SphinxPluginTypes {
             SphinxMerkleTree memory merkleTree,
             HumanReadableAction[] memory humanReadableActions
         )
-    {}
+    { }
 
     function parsedAccountAccessType()
         external
         view
         returns (ParsedAccountAccess memory parsedAccountAccess)
-    {}
+    { }
 
     function getDeploymentInfo()
         external
         view
         returns (FoundryDeploymentInfo memory deploymentInfo)
-    {}
+    { }
 
     function getDeploymentInfoArray()
         external
         view
         returns (FoundryDeploymentInfo[] memory deploymentInfoArray)
-    {}
+    { }
 
-    function sphinxConfigType() external view returns (SphinxConfig memory sphinxConfig) {}
+    function userSphinxConfigType()
+        external
+        view
+        returns (UserSphinxConfig memory userSphinxConfig)
+    {}
 
     function systemContractInfoArrayType()
         external
         view
         returns (SystemContractInfo[] memory systemContracts)
-    {}
+    { }
 
     function sphinxLeafWithProofType()
         external
         view
         returns (SphinxLeafWithProof memory leafWithProof)
-    {}
+    { }
 
     function leafWithProofBatchesType()
         external
         view
         returns (SphinxLeafWithProof[][] memory batches)
-    {}
+    { }
 }

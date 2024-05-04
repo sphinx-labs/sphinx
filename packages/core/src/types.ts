@@ -7,3 +7,20 @@ export type StoreDeploymentConfig = (
 ) => Promise<string>
 
 export type RelayProposal = (proposalRequest: ProposalRequest) => Promise<void>
+
+export type SphinxLock = {
+  format: string
+  orgId: string
+  projects: {
+    [projectName: string]: {
+      projectId: string
+      projectName: string
+      defaultSafe: {
+        safeName: string
+        owners: string[]
+        threshold: string
+        saltNonce: string
+      }
+    }
+  }
+}

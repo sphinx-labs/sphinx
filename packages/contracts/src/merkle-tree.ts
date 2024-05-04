@@ -47,6 +47,8 @@ export type DeploymentData = Record<
   NetworkDeploymentData | NetworkCancellationData
 >
 
+export type DeploymentData_2_0_0 = Record<string, NetworkDeploymentData_2_0_0>
+
 /**
  * @notice Contains the base data on each network, which should be included in the MerkleTree. These
  * fields are shared between the NetworkDeploymentData type and NetworkCancellationData type.
@@ -65,6 +67,15 @@ type BaseNetworkData = {
   uri: string
 }
 
+type BaseNetworkData_2_0_0 = {
+  previousMerkleRoot: string
+  previousLeavesExecuted: string
+  executor: string
+  safeProxy: string
+  moduleProxy: string
+  uri: string
+}
+
 /**
  * @notice Contains data on each network which should be included in the MerkleTree and is specific to
  * deployments.
@@ -77,6 +88,12 @@ export type NetworkDeploymentData = BaseNetworkData & {
   type: 'deployment'
   arbitraryChain: boolean
   txs: SphinxTransaction[]
+}
+
+export type NetworkDeploymentData_2_0_0 = BaseNetworkData_2_0_0 & {
+  type: 'deployment'
+  arbitraryChain: boolean
+  txs: SphinxTransaction_2_0_0[]
 }
 
 /**
@@ -117,6 +134,14 @@ export type SphinxTransaction = {
   gas: string
   operation: Operation
   requireSuccess: boolean
+}
+
+export type SphinxTransaction_2_0_0 = {
+  to: string
+  value: string
+  txData: string
+  operation: Operation
+  requireIsContract: boolean
 }
 
 /**
@@ -276,6 +301,110 @@ export const makeSphinxLeaves = (
   return merkleLeaves
 }
 
+export const makeSphinxLeaves_2_0_0 = (
+  deploymentData: DeploymentData_2_0_0
+): Array<SphinxLeaf> => {
+  let approvalIncluded = false
+  let arbitraryApprovalIncluded = false
+
+  const merkleLeaves: Array<SphinxLeaf> = []
+
+  const coder = AbiCoder.defaultAbiCoder()
+
+  for (const [chainIdStr, data] of Object.entries(deploymentData)) {
+    if (!isNetworkDeploymentData_2_0_0(data)) {
+      throw new Error(`Unknown network data type. Should never happen.`)
+    }
+
+    const chainId = data.arbitraryChain ? BigInt(0) : BigInt(chainIdStr)
+
+    // If this DeploymentData entry is for an arbitrary approval, then throw errors related to prior conflicting leaves
+    if (data.arbitraryChain) {
+      // TODO(later): could we remove both of these checks by just checking that there's only one
+      // `NetworkDeploymentData` if `arbitraryChain === true`?
+      if (arbitraryApprovalIncluded) {
+        // If there has already been another arbitrary approval leaf, then throw an error
+        throw new Error(
+          'Detected `arbitraryChain` === true in multiple DeploymentData entries'
+        )
+      } else if (approvalIncluded) {
+        // If there has already been any other approval leaf, then throw an error
+        throw new Error(
+          'Detected conflicting approval and `arbitraryChain` === true `DeploymentData` entries.'
+        )
+      }
+
+      arbitraryApprovalIncluded = true
+    } else if (arbitraryApprovalIncluded) {
+      // If this DeploymentData entry is for a normal approval and there was a previous arbitrary approval, then throw an error
+      throw new Error(
+        'Detected conflicting approval and `arbitraryChain` === true `DeploymentData` entries.'
+      )
+    }
+
+    approvalIncluded = true
+
+    // generate approval leaf data
+    const approvalData = coder.encode(
+      [
+        'address',
+        'address',
+        'bytes32',
+        'uint256',
+        'uint256',
+        'address',
+        'string',
+        'bool',
+      ],
+      [
+        data.safeProxy,
+        data.moduleProxy,
+        data.previousMerkleRoot,
+        data.previousLeavesExecuted,
+        data.txs.length + 1, // We add one to account for the approval leaf
+        data.executor,
+        data.uri,
+        data.arbitraryChain,
+      ]
+    )
+
+    // push approval leaf
+    merkleLeaves.push({
+      chainId,
+      index: BigInt(0),
+      leafType: SphinxLeafType.APPROVE,
+      data: approvalData,
+    })
+
+    // push transaction leaves
+    let index = BigInt(1)
+    for (const tx of data.txs) {
+      // generate transaction leaf data
+      const transactionLeafData = coder.encode(
+        ['address', 'uint256', 'bytes', 'uint256', 'bool'],
+        [
+          tx.to,
+          BigInt(tx.value),
+          tx.txData,
+          BigInt(tx.operation),
+          tx.requireIsContract,
+        ]
+      )
+
+      merkleLeaves.push({
+        chainId,
+        index,
+        leafType: SphinxLeafType.EXECUTE,
+        data: transactionLeafData,
+      })
+
+      index += BigInt(1)
+    }
+  }
+
+  return merkleLeaves
+}
+
 /**
  * @notice Checks if an input networkData object is a valid BaseNetworkData object with the correct fields and types
  *
@@ -285,6 +414,19 @@ export const makeSphinxLeaves = (
 export const isBaseNetworkData = (networkData: BaseNetworkData) => {
   return (
     typeof networkData.nonce === 'string' &&
+    typeof networkData.executor === 'string' &&
+    typeof networkData.safeProxy === 'string' &&
+    typeof networkData.moduleProxy === 'string' &&
+    typeof networkData.uri === 'string'
+  )
+}
+
+export const isBaseNetworkData_2_0_0 = (
+  networkData: BaseNetworkData_2_0_0
+): networkData is BaseNetworkData_2_0_0 => {
+  return (
+    typeof networkData.previousMerkleRoot === 'string' &&
+    typeof networkData.previousLeavesExecuted === 'string' &&
     typeof networkData.executor === 'string' &&
     typeof networkData.safeProxy === 'string' &&
     typeof networkData.moduleProxy === 'string' &&
@@ -314,6 +456,25 @@ export const isNetworkDeploymentData = (
         typeof tx.to === 'string' &&
         typeof tx.txData === 'string' &&
         typeof tx.value === 'string'
+    )
+  )
+}
+
+export const isNetworkDeploymentData_2_0_0 = (
+  networkData: NetworkDeploymentData_2_0_0
+): networkData is NetworkDeploymentData_2_0_0 => {
+  const networkDeploymentData = networkData as NetworkDeploymentData_2_0_0
+  return (
+    isBaseNetworkData_2_0_0(networkData) &&
+    typeof networkDeploymentData.arbitraryChain === 'boolean' &&
+    Array.isArray(networkDeploymentData.txs) &&
+    networkDeploymentData.txs.every(
+      (tx) =>
+        typeof tx.to === 'string' &&
+        typeof tx.value === 'string' &&
+        typeof tx.txData === 'string' &&
+        typeof tx.operation === 'number' &&
+        typeof tx.requireIsContract === 'boolean'
     )
   )
 }
@@ -377,3 +538,23 @@ export const makeSphinxMerkleTree = (
   const leaves = makeSphinxLeaves(deploymentData)
   return makeSphinxMerkleTreeFromLeaves(leaves)
 }
+
+export const makeSphinxMerkleTree_2_0_0 = (
+  deploymentData: DeploymentData_2_0_0
+): SphinxMerkleTree => {
+  const leaves = makeSphinxLeaves_2_0_0(deploymentData)
+  return makeSphinxMerkleTreeFromLeaves(leaves)
+}
+
+export const makeSphinxMerkleTreeWithMigration = (
+  migrationDeploymentData: DeploymentData,
+  deploymentData: DeploymentData_2_0_0
+): SphinxMerkleTree => {
+  const migrationLeaves = makeSphinxLeaves(migrationDeploymentData)
+  const deploymentLeaves = makeSphinxLeaves_2_0_0(deploymentData)
+  const leaves = migrationLeaves.concat(deploymentLeaves)
+  return makeSphinxMerkleTreeFromLeaves(leaves)
+}
+
+// TODO(later-later): for each variable suffixed with _2_0_0, rename the analogous initial variable
+// to _1_0_0. actually, maybe you shouldn't do this for audited code?

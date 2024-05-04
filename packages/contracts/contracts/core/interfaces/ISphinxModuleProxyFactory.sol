@@ -38,7 +38,10 @@ interface ISphinxModuleProxyFactory {
         address _safeProxy,
         address _caller,
         uint256 _saltNonce
-    ) external view returns (address);
+    )
+        external
+        view
+        returns (address);
 
     /**
      * @notice Uses `CREATE2` to deploy a `SphinxModuleProxy`. Use this function if the Gnosis Safe
@@ -58,7 +61,9 @@ interface ISphinxModuleProxyFactory {
     function deploySphinxModuleProxy(
         address _safeProxy,
         uint256 _saltNonce
-    ) external returns (address sphinxModuleProxy);
+    )
+        external
+        returns (address sphinxModuleProxy);
 
     /**
      * @notice Uses `CREATE2` to deploy a `SphinxModuleProxy`. Meant to be called by a Gnosis Safe

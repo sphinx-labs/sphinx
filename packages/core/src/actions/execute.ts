@@ -244,7 +244,7 @@ export type DeploymentContext = {
   /**
    * Stores the deployment metadata for easy access.
    *
-   * Provides us with a common interface for information about the deployment. In the website this is is a real object
+   * Provides us with a common interface for information about the deployment. In the website this is a real object
    * in the DB. We use a minimal type here to make it easy to work with in the deploy and propose command logic.
    */
   deployment: Deployment
@@ -905,6 +905,9 @@ export const handleStatus = (
   }
 }
 
+// TODO(docs): for migrations, `networkConfig.moduleAddress` is the module that executes the
+// deployment, i.e. the final module.
+
 /**
  * We do not recommend using this function directly. We prefer to us the `attemptDeployment` function
  * below which is shared between the deploy command, propose command, simulation, and website backend.
@@ -1066,6 +1069,21 @@ const executeDeployment = async (
 
   await deploymentContext.injectRoles(deploymentContext, executionMode)
 
+  // TODO(later): mv
+  if (networkConfig.migrateModule) {
+    spinner?.start(`Migrating Sphinx Module...`)
+
+    const approvalLeafWithProof = findLeafWithProof(
+      merkleTree,
+      SphinxLeafType.APPROVE,
+      BigInt(networkConfig.chainId)
+    )
+
+    spinner?.succeed(`Migrated Sphinx Module.`)
+  }
+
+  // TODO(later): the leaf filtering logic may need to include something additional for migrations.
+  // same with the logic that filters the `EXECUTE` leaves.
   const approvalLeafWithProof = findLeafWithProof(
     merkleTree,
     SphinxLeafType.APPROVE,
@@ -1173,6 +1191,9 @@ export const fetchExecutionTransactionReceipts = async (
 ) => {
   const module = new ethers.Contract(moduleAddress, SphinxModuleABI, provider)
 
+  // TODO(later): is it okay that some of these events have different params?
+
+  // TODO(later): consider keeping these old events for backwards compatibility.
   const SphinxMerkleRootApprovedFilter =
     module.filters.SphinxMerkleRootApproved(merkleRoot)
   const SphinxMerkleRootCanceledFilter =
@@ -1384,3 +1405,8 @@ export const attemptDeployment = async (
 export const sphinxCoreExecute = {
   attemptDeployment,
 }
+
+// TODO(later): we need to handle failures differently now.
+
+// TODO(later): add the migration data to the relevant arrays. e.g. transaction receipts, batches,
+// etc.

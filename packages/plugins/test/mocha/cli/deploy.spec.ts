@@ -28,6 +28,7 @@ import {
   CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   SphinxMerkleTree,
+  getGnosisSafeProxyAddress,
   parseFoundryContractArtifact,
 } from '@sphinx-labs/contracts'
 
@@ -43,7 +44,6 @@ import {
   startAnvilNodes,
   getSphinxModuleAddressFromScript,
   getEmptyDeploymentArtifacts,
-  getGnosisSafeProxyAddress,
   makeActionInputsWithoutGas,
   encodeFunctionCalldata,
 } from '../common'
@@ -771,7 +771,7 @@ describe('Deployment Cases', () => {
     )
 
     checkArtifacts(
-      'Deployment_Cases_Project',
+      'Simple_Project',
       deploymentConfig,
       getEmptyDeploymentArtifacts(),
       artifacts,

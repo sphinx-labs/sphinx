@@ -1,5 +1,18 @@
 # @sphinx-labs/plugins
 
+## 0.31.12
+
+### Patch Changes
+
+- 01f4d34: Include rollup stack information for all relevant networks
+- b54c683: Stop hiding API call error if response code unexpected
+- 89d421b: Support Astart zkEVM, Mantle, Crab
+- Updated dependencies [01f4d34]
+- Updated dependencies [b54c683]
+- Updated dependencies [89d421b]
+  - @sphinx-labs/contracts@0.21.11
+  - @sphinx-labs/core@0.24.9
+
 ## 0.31.11
 
 ### Patch Changes

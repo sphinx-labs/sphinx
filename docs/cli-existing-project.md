@@ -18,18 +18,19 @@ In this guide, you'll propose the deployment on the command line and then approv
 4. [Install Sphinx Foundry library](#4-install-sphinx-foundry-library)
 5. [Update `.gitignore`](#5-update-gitignore)
 6. [Add remapping](#6-add-remapping)
-7. [Update your deployment script](#7-update-your-deployment-script)\
+7. [Create a new Sphinx project](#7-create-a-new-sphinx-project)
+8. [Generate your sphinx.lock file](#8-generate-your-sphinxlock-file)
+9. [Update your deployment script](#9-update-your-deployment-script)\
   a. [Import Sphinx](#a-import-sphinx)\
   b. [Inherit from `Sphinx`](#b-inherit-from-sphinx)\
   c. [Add the `sphinx` modifier](#c-add-the-sphinx-modifier)\
   d. [Remove broadcasts](#d-remove-broadcasts)\
   e. [Handle new sender address](#e-handle-new-sender-address)\
-  f. [Add configuration options](#e-add-configuration-options)
-8. [Add environment variables](#8-add-environment-variables)
-9. [Update `foundry.toml` settings](#9-update-foundrytoml-settings)
-10. [Run tests](#10-run-tests)
-11. [Propose on testnets](#11-propose-on-testnets)
-12. [Next steps](#12-next-steps)
+  f. [Configure project name](#f-configure-project-name)
+10. [Add environment variables](#10-add-environment-variables)
+11. [Update `foundry.toml` settings](#11-update-foundrytoml-settings)
+12. [Propose on testnets](#12-propose-on-testnets)
+13. [Next steps](#13-next-steps)
 
 ## 1. Prerequisites
 
@@ -103,7 +104,24 @@ Configure the following remapping in either your `foundry.toml` file or `remappi
 @sphinx-labs/contracts/=lib/sphinx/packages/contracts/contracts/foundry
 ```
 
-## 7. Update your deployment script
+## 7. Create a new Sphinx project
+Go to the [Sphinx website](https://sphinx.dev), sign up, and click the "Create Project" button. After you've finished creating the project, you'll see your Org ID, API Key, and Project Name on the website. You'll need these values for the rest of the guide.
+
+## 8. Generate your `sphinx.lock` file
+Sphinx uses a lock file to track your project configuration options. To generate this file, run the command:
+```
+npx sphinx sync --org-id <ORG_ID>
+```
+
+Commit the file to version control:
+```
+git add sphinx.lock
+git commit -m "maint: Creating Sphinx lock file"
+```
+
+> When you create new projects, you'll want to update this file by running `npx sphinx sync`. Don't worry if you forget, we'll detect if the file may be out of date and let you know.
+
+## 9. Update your deployment script
 
 Navigate to your deployment script. In this section, we'll update it to be compatible with Sphinx.
 
@@ -153,28 +171,21 @@ For example, you may need to:
 - Update hardcoded contract addresses
 - Assign permissions using your Gnosis Safe address
 
-### f. Add configuration options
-
-There are a few configuration options that you must specify inside a `configureSphinx()` function in your deployment script. The options all exist on the `sphinxConfig` struct, which is inherited from `Sphinx.sol`.
+### f. Configure Project Name
 
 Copy and paste the following `configureSphinx()` function template into your script:
 
 ```sol
 function configureSphinx() public override {
-  sphinxConfig.owners = [<your address>];
-  sphinxConfig.orgId = <Sphinx org ID>;
-  sphinxConfig.projectName = "My_First_Project";
-  sphinxConfig.threshold = 1;
+  sphinxConfig.projectName = <your_project_name>;
 }
 ```
 
-You'll need to update the following fields in this template:
-* Enter your address in the `owners` array.
-* Enter your Sphinx Organization ID in the `orgId` field. It's a public field, so you don't need to keep it secret. You can find it in the Sphinx UI.
+You'll need to update the `projectName` field to match the Project Name you created in the Sphinx UI.
 
-## 8. Add environment variables
+## 10. Add environment variables
 
-Get your Sphinx API Key from the Sphinx UI, then enter it as an environment variable:
+Get your Sphinx API Key from the Sphinx UI and add it as an environment variable:
 ```
 SPHINX_API_KEY=<your_api_key>
 ```
@@ -184,7 +195,7 @@ Also, if you haven't added your node provider API key as an environment variable
 ALCHEMY_API_KEY=<your_api_key>
 ```
 
-## 9. Update `foundry.toml` settings
+## 11. Update `foundry.toml` settings
 
 Update your `foundry.toml` file to include a few settings required by Sphinx. We recommend putting them in `[profile.default]`.
 
@@ -192,14 +203,7 @@ Update your `foundry.toml` file to include a few settings required by Sphinx. We
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 ```
-
-## 10. Run tests
-
-You've finished integrating Sphinx! Your next step is to check that your existing tests are passing. Go ahead and run your Forge tests.
-
-If you can't get your test suite to pass, we're more than happy to help! Reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np).
-
-## 11. Propose on testnets
+## 12. Propose on testnets
 
 Use one of the command templates below to propose your deployment. Make sure to update the following parts of the command:
 * Replace `<PATH_TO_FORGE_SCRIPT>` with the path to your Forge script.
@@ -225,6 +229,6 @@ Here are the steps that occur when you run this command:
 
 When the proposal is finished, go to the [Sphinx UI](https://sphinx.dev) to approve the deployment. After you approve it, you can monitor the deployment's status in the UI while it's executed.
 
-## 12. Next steps
+## 13. Next steps
 
 Before you use Sphinx in production, we recommend reading the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md), which covers essential information for using Sphinx.

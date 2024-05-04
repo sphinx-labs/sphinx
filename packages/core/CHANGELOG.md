@@ -1,5 +1,15 @@
 # @sphinx-labs/core
 
+## 0.24.9
+
+### Patch Changes
+
+- 01f4d34: Include rollup stack information for all relevant networks
+- b54c683: Stop hiding API call error if response code unexpected
+- Updated dependencies [01f4d34]
+- Updated dependencies [89d421b]
+  - @sphinx-labs/contracts@0.21.11
+
 ## 0.24.8
 
 ### Patch Changes
