@@ -502,3 +502,11 @@ export const deploy = async (
 
 // TODO(later): migrations: could an analogous sus situation occur when migrating gnosis safe
 // singletons?
+
+// TODO(docs): Not sure if we should document this, but I'm leaving it here for posterity. To
+// migrate from the V1 module, I think we need to enable the V2 module then disable the V1 module in
+// two separate transactions. Here are our other two options, and why we shouldn't use them:
+// - Option 1: Multicall the enableModule and disableModule calls. Say the Multicall contract isn't
+//   deployed; the `EXECUTE` leaf will succeed, but the action won't be taken.
+// - Option 2: Disable the V1 module then enable the V2 module as two separate `EXECUTE` leaves.
+//   Doesn't work because we won't be able to enable the V2 module after the V1 module is disabled.
