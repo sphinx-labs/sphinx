@@ -30,7 +30,8 @@
     "lint:ts:check": "eslint . --max-warnings=0",
     "pre-commit": "lint-staged",
     "yalc:publish": "yarn build && yalc publish",
-    "sync:rpc": "infisical export --path='/RPC' --env=dev >> .env"
+    "sync:rpc": "infisical export --path='/RPC' --env=dev >> .env",
+    "write-version": "npx ts-node script/write-version.ts > src/cli/version.ts"
   },
   "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/plugins#readme",
   "license": "MIT",

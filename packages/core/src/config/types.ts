@@ -81,7 +81,7 @@ export type NetworkConfig = {
   blockGasLimit: string
   blockNumber: string
   actionInputs: Array<ActionInput>
-  newConfig: SphinxConfig
+  newConfig: InternalSphinxConfig
   executionMode: ExecutionMode
   initialState: InitialChainState
   isSystemDeployed: boolean
@@ -111,7 +111,7 @@ export type DeploymentInfo = {
   blockGasLimit: string
   blockNumber: string
   safeInitData: string
-  newConfig: SphinxConfig
+  newConfig: InternalSphinxConfig
   executionMode: ExecutionMode
   initialState: InitialChainState
   arbitraryChain: boolean
@@ -143,12 +143,15 @@ export type UserAddressOverrides = {
   address: string
 }
 
-export type SphinxConfigWithAddresses = SphinxConfig & {
+export type UserSphinxConfigWithAddresses = {
+  projectName: string
+  mainnets: Array<string>
+  testnets: Array<string>
   safeAddress: string
   moduleAddress: string
 }
 
-export type SphinxConfig = {
+export type InternalSphinxConfig = {
   projectName: string
   orgId: string
   owners: Array<string>
