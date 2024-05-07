@@ -1,1 +1,1 @@
-export const CONTRACTS_LIBRARY_VERSION = 'v0.21.11'
+export const CONTRACTS_LIBRARY_VERSION = 'v0.22.0'

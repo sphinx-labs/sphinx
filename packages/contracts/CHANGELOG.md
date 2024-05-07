@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.22.0
+
+### Minor Changes
+
+- a978b3b: Move project registration onto website
+
 ## 0.21.11
 
 ### Patch Changes
