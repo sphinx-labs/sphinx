@@ -1,0 +1,30 @@
+{
+  "format": "sphinx-lock-1",
+  "orgId": "test-org-id",
+  "projects": {
+    "Simple_Project": {
+      "projectId": "",
+      "projectName": "Simple_Project",
+      "defaultSafe": {
+        "safeName": "Simple_Project",
+        "owners": [
+          "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+        ],
+        "threshold": "1",
+        "saltNonce": "0"
+      }
+    },
+    "Simple_Project_1": {
+      "projectId": "",
+      "projectName": "Simple_Project_1",
+      "defaultSafe": {
+        "safeName": "Simple_Project_1",
+        "owners": [
+          "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+        ],
+        "threshold": "1",
+        "saltNonce": "1"
+      }
+    }
+  }
+}

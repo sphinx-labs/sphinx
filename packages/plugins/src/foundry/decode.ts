@@ -4,7 +4,6 @@ import {
   DeploymentInfo,
   FunctionCallActionInput,
   NetworkConfig,
-  assertValidProjectName,
   DecodedAction,
   ParsedVariable,
   getAbiEncodedConstructorArgs,
@@ -24,7 +23,6 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   Operation,
   recursivelyConvertResult,
-  getCurrentGitCommitHash,
   getCreateCallAddress,
   AccountAccessKind,
 } from '@sphinx-labs/contracts'
@@ -34,6 +32,7 @@ import {
   findFullyQualifiedNameForAddress,
   findFullyQualifiedNameForInitCode,
   findFunctionFragment,
+  getCurrentGitCommitHash,
   isCreate2AccountAccess,
   isDeploymentInfo,
   parseNestedContractDeployments,
@@ -121,8 +120,6 @@ export const decodeDeploymentInfo = (
   if (!isDeploymentInfo(deploymentInfo)) {
     throw new Error(`Invalid DeploymentInfo object. Should never happen.`)
   }
-
-  assertValidProjectName(deploymentInfo.newConfig.projectName)
 
   return deploymentInfo
 }

@@ -24,7 +24,7 @@ export const fetchForgeConfig = (
 script = 'script'
 test = 'test'
 extra_output = ['storageLayout']
-fs_permissions=[{access="read", path="./out"}, {access="read-write", path="./cache"}]
+fs_permissions=[{access="read", path="./out"}, {access="read-write", path="./cache"}, { access = "read", path="./sphinx.lock" }]
 allow_paths = ["../.."]
 ${fetchConfigRemappings(includeStandard)}
 
@@ -54,6 +54,7 @@ dist/
 
 export const fetchDotEnvFile = (
   sphinxApiKey: string,
+  sphinxOrgId: string,
   alchemyApiKey: string
 ): string => {
   return `SPHINX_API_KEY=${sphinxApiKey}\n` + `RPC_API_KEY=${alchemyApiKey}`
