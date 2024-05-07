@@ -41,15 +41,6 @@ Sphinx now only requires that you specify the `sphinxConfig.projectName` field i
 
 If you are using the `sphinxConfig.mainnets` or `sphinxConfig.testnets` options, you can leave both of them as they are.
 
-### 5. Allow read access to the sphinx.lock file
-Add the following option to the `fs_permissions` field in your foundry.toml file:
-`{access="read", path="./sphinx.lock"}`
-
-After you are done, it should look something like this:
-```
-fs_permissions=[{access="read", path="./out"}, {access="read-write", path="./cache"}, {access="read", path="./sphinx.lock"}]
-```
-
 ### 5. Try proposing with your updated script
 ```
 npx sphinx propose ./path/to/Script.s.sol --networks sepolia --dry-run
