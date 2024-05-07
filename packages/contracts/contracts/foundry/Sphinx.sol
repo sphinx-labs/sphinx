@@ -14,14 +14,13 @@ import {
     SphinxMerkleTree,
     HumanReadableAction,
     Network,
-    SphinxConfig,
     FoundryDeploymentInfo,
     NetworkInfo,
     Wallet,
     GnosisSafeTransaction,
     ExecutionMode,
     SystemContractInfo,
-    ParsedAccountAccess
+    UserSphinxConfig
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
@@ -53,7 +52,7 @@ abstract contract Sphinx {
      * @dev The configuration options for the user's project. This variable must have `internal`
      *      visibility so that the user can set fields on it.
      */
-    SphinxConfig public sphinxConfig;
+    UserSphinxConfig public sphinxConfig;
 
     SphinxConstants private constants;
 
@@ -99,7 +98,7 @@ abstract contract Sphinx {
      * When fetching the config for normal usage in this contract, we should use the
      * `sphinxUtils.fetchAndValidateConfig()` function.
      */
-    function sphinxFetchConfig() external view returns (SphinxConfig memory) {
+    function sphinxFetchConfig() external view returns (UserSphinxConfig memory) {
         return sphinxConfig;
     }
 
@@ -158,7 +157,7 @@ abstract contract Sphinx {
     ) external {
         address deployer;
         if (_executionMode == ExecutionMode.LiveNetworkCLI) {
-            sphinxUtils.validateLiveNetworkCLI(sphinxConfig, IGnosisSafe(safeAddress()));
+            sphinxUtils.validateLiveNetworkCLI(IGnosisSafe(safeAddress()), address(this));
             deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         } else if (_executionMode == ExecutionMode.LocalNetworkCLI) {
             // Set the `ManagedService` contract as the deployer. Although this isn't strictly
@@ -212,8 +211,8 @@ abstract contract Sphinx {
         // This also also ensures that the safe's nonce is incremented as a contract instead of an EOA.
         if (address(safe).code.length == 0) {
             sphinxUtils.deployModuleAndGnosisSafe(
-                sphinxConfig.owners,
-                sphinxConfig.threshold,
+                deploymentInfo.newConfig.owners,
+                deploymentInfo.newConfig.threshold,
                 safe
             );
         }
@@ -353,8 +352,8 @@ abstract contract Sphinx {
      *         off-chain. We ABI encode the config because it's difficult to decode complex
      *         data types that are returned by invoking Forge scripts.
      */
-    function sphinxConfigABIEncoded() public returns (bytes memory) {
-        SphinxConfig memory config = sphinxUtils.fetchAndValidateConfig(address(this));
+    function userSphinxConfigABIEncoded() public returns (bytes memory) {
+        UserSphinxConfig memory config = sphinxUtils.fetchAndValidateConfig(address(this));
         return abi.encode(config, safeAddress(), sphinxModule());
     }
 }

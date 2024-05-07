@@ -5,9 +5,9 @@ import { Vm, VmSafe } from "../contracts/forge-std/src/Vm.sol";
 import {
     Network,
     NetworkInfo,
-    SphinxConfig,
     FoundryDeploymentInfo,
-    ParsedAccountAccess
+    ParsedAccountAccess,
+    SphinxLockProject
 } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "../contracts/forge-std/src/StdCheats.sol";
 
@@ -208,19 +208,20 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
      * @notice Executes a single transaction that deploys a Gnosis Safe, deploys a Sphinx Module,
      *         and enables the Sphinx Module in the Gnosis Safe
      */
-    function deploySphinxModuleAndGnosisSafe(
-        SphinxConfig memory _config
-    ) public returns (IGnosisSafe) {
+    function deploySphinxModuleAndGnosisSafe() public returns (IGnosisSafe) {
         IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(safeFactoryAddress);
 
-        bytes memory safeInitializerData = getGnosisSafeInitializerData(address(this));
+        (
+            bytes memory safeInitializerData,
+            SphinxLockProject memory project
+        ) = getGnosisSafeInitializerData(address(this));
 
         // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
         // and enables the Sphinx Module in the Gnosis Safe.
         IGnosisSafeProxy safeProxy = safeProxyFactory.createProxyWithNonce(
             safeSingletonAddress,
             safeInitializerData,
-            _config.saltNonce
+            project.defaultSafe.saltNonce
         );
 
         return IGnosisSafe(address(safeProxy));

@@ -10,7 +10,8 @@ import {
 } from '@sphinx-labs/plugins'
 import { expect } from 'chai'
 import { ethers } from 'ethers'
-import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
+import { getGnosisSafeProxyAddress } from '@sphinx-labs/contracts'
+import * as dotenv from 'dotenv'
 
 import { deleteForgeProject } from './common'
 
@@ -50,10 +51,14 @@ describe('Init CLI command', () => {
 
     const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
+    const testOrgId = 'sphinx-org-id'
+    const testApiKey = 'sphinx-api-key'
+    const testAlchemyKey = 'alchemy-api-key'
+
     // We use `SPHINX_INTERNAL_TEST__DEMO_TEST` to skip the init command steps where we create a git repo and commit all the files to it.
     // We do this to avoid messing with out commit history when testing locally.
     await execAsync(
-      `export SPHINX_INTERNAL_TEST__DEMO_TEST=true && npx sphinx init --org-id TEST_ORG_ID --sphinx-api-key TEST_SPHINX_KEY --alchemy-api-key TEST_ALCHEMY_KEY --owner ${ownerAddress}`
+      `export SPHINX_INTERNAL_TEST__DEMO_TEST=true && npx sphinx init --org-id ${testOrgId} --sphinx-api-key ${testApiKey} --alchemy-api-key ${testAlchemyKey} --project My_First_Project`
     )
 
     // Check that the files have been created
@@ -74,20 +79,10 @@ describe('Init CLI command', () => {
       require(path.resolve('./out/HelloSphinx.sol/HelloSphinx.json'))
 
     // Get the sample contract's address.
-    const coder = ethers.AbiCoder.defaultAbiCoder()
-    const create2Salt = ethers.keccak256(
-      coder.encode([`address[]`], [[ownerAddress]])
-    )
-    const contractAddress = ethers.getCreate2Address(
-      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-      create2Salt,
-      ethers.keccak256(
-        ethers.concat([
-          artifact.bytecode.object,
-          coder.encode(['string', 'uint256'], ['Hi', 2]),
-        ])
-      )
-    )
+    const contractAddress = ethers.getCreateAddress({
+      from: getGnosisSafeProxyAddress([ownerAddress], 1, 0),
+      nonce: 1,
+    })
 
     // Check that the contract was deployed correctly
     expect(await provider.getCode(contractAddress)).to.not.equal('0x')
@@ -98,5 +93,16 @@ describe('Init CLI command', () => {
     )
     expect(await contract.greeting()).to.equal('Hi')
     expect(await contract.number()).to.equal(BigInt(10))
+
+    // We have to clear these environment variables before we load them from the
+    // .env file because they may already be defined in Circle CI. If they are, then
+    // this test will not work as expected because the values defined in Circle CI
+    // will be used
+    delete process.env.SPHINX_API_KEY
+    delete process.env.RPC_API_KEY
+
+    dotenv.config()
+    expect(process.env.SPHINX_API_KEY).to.equal(testApiKey)
+    expect(process.env.RPC_API_KEY).to.equal(testAlchemyKey)
   })
 })
