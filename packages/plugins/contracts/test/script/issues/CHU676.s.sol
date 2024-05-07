@@ -9,10 +9,7 @@ import { Owned } from "./Owned.sol";
 
 contract CHU676 is Sphinx {
     function configureSphinx() public override {
-        sphinxConfig.projectName = "CHU-676";
-        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-        sphinxConfig.threshold = 1;
-        sphinxConfig.orgId = "test-org-id";
+        sphinxConfig.projectName = "Simple_Project";
     }
 
     function run() public sphinx {

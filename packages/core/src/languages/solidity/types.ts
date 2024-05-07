@@ -27,7 +27,8 @@ import { ExecutionMode } from '../../constants'
  * @property {string} chainId - The chain ID.
  * @property {Array<SphinxTransaction>} actions - An array of Sphinx transactions, which are the
  * encoded inputs to the deployment.
- * @property {Object} sphinxConfig - The configuration options in the deployment script.
+ * @property {Object} sphinxConfig - The configuration options in the deployment script along with
+ * the configuration options for the Gnosis Safe that executed the deployment.
  * @property {ExecutionMode} executionMode - Whether the deployment was executed on a local network
  * via the CLI, on a live network via the CLI, or via the DevOps Platform.
  * @property {Object} initialState - On-chain state variables that were recorded before the

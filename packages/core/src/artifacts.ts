@@ -74,7 +74,7 @@ export const fetchDeploymentArtifacts = async (
           )
         } else if (err.response.status === 401) {
           throw new Error(
-            `Unauthorized, please check your API key and Org Id are correct`
+            `Unauthorized, please check your API key and Org ID are correct`
           )
         } else if (err.response.status === 404) {
           throw new Error(`No artifacts found for this project`)
