@@ -61,6 +61,7 @@ import {
   SphinxJsonRpcProvider,
   EstimateGasTransactionData,
   TransactionEstimatedGas,
+  InvariantError,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
@@ -385,8 +386,8 @@ const findFullyQualifiedNames = (
 
   // Normalize the source name so that it conforms to the format of the fully qualified names in the
   // build info cache. The normalized format is "path/to/file.sol".
-  const sourceName = relative(projectRoot, rawSourceName)
-
+  const relativeSourceName = relative(projectRoot, rawSourceName)
+  const absoluteSourceName = path.resolve(rawSourceName)
   const buildInfoCache: Record<string, BuildInfoCacheEntry> = JSON.parse(
     readFileSync(buildInfoCacheFilePath, 'utf8')
   )
@@ -397,12 +398,27 @@ const findFullyQualifiedNames = (
   )
 
   for (const { contracts } of sortedCachedFiles) {
-    const fullyQualifiedNames = contracts
-      .filter((contract) => contract.fullyQualifiedName.startsWith(sourceName))
+    const relativeFullyQualifiedNames = contracts
+      .filter((contract) =>
+        contract.fullyQualifiedName.startsWith(relativeSourceName)
+      )
       .map((contract) => contract.fullyQualifiedName)
 
-    if (fullyQualifiedNames.length > 0) {
-      return fullyQualifiedNames
+    const absoluteFullyQualifiedNames = contracts
+      .filter((contract) =>
+        contract.fullyQualifiedName.startsWith(absoluteSourceName)
+      )
+      .map((contract) => contract.fullyQualifiedName)
+
+    if (
+      relativeFullyQualifiedNames.length > 0 &&
+      absoluteFullyQualifiedNames.length > 0
+    ) {
+      throw new InvariantError('Found both relative and absolute matches')
+    } else if (relativeFullyQualifiedNames.length > 0) {
+      return relativeFullyQualifiedNames
+    } else if (absoluteFullyQualifiedNames.length > 0) {
+      return absoluteFullyQualifiedNames
     }
   }
 

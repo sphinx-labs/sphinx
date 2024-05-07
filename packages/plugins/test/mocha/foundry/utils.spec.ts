@@ -178,7 +178,7 @@ describe('Utils', async () => {
       // Fifth contract:
       expect(
         existsSync(
-          `${artifactFolder}/test/deeper/DuplicateContractName.sol/DuplicateContractName.json`
+          `${artifactFolder}/deep/deeper/DuplicateContractName.sol/DuplicateContractName.json`
         )
       ).equals(true)
 
@@ -814,7 +814,9 @@ describe('Utils', async () => {
           projectRoot
         )
       ).to.be.rejectedWith(
-        `Detected linked library in: ${sourceName}:MyLinkedLibraryContract\n` +
+        `Detected linked library in: ${resolve(
+          sourceName
+        )}:MyLinkedLibraryContract\n` +
           `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`
       )
     })
