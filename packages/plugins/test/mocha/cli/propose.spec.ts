@@ -37,6 +37,7 @@ const expect = chai.expect
 const coder = new ethers.AbiCoder()
 
 const sphinxApiKey = 'test-api-key'
+const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 const sepoliaRpcUrl = `http://127.0.0.1:42111`
 
 const allNetworkNames = ['ethereum', 'optimism', 'sepolia']
@@ -142,7 +143,7 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple_Project',
+      'Simple_Project_1',
       isTestnet,
       [11155111],
       [
@@ -252,7 +253,7 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple_Project',
+      'Simple_Project_1',
       isTestnet,
       [1, 10],
       [
@@ -418,7 +419,7 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple_Project',
+      'Large_Project',
       isTestnet,
       [11155111],
       [
@@ -533,7 +534,7 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple_Project',
+      'Simple_Project_2',
       isTestnet,
       [11155111],
       [
@@ -640,7 +641,7 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple_Project',
+      'Partially_Empty',
       isTestnet,
       // Optimism is not included in the `chainIds` array because there's nothing to execute on it.
       [1],
@@ -830,7 +831,7 @@ describe('Propose CLI command', () => {
 
         assertValidProposalRequest(
           proposalRequest,
-          'Simple_Project',
+          'CHU-676',
           isTestnet,
           [11155111],
           [
@@ -960,6 +961,9 @@ const assertValidProposalRequest = (
   expect(proposalRequest.apiKey).to.equal(sphinxApiKey)
   expect(proposalRequest.orgId).to.equal('test-org-id')
   expect(proposalRequest.isTestnet).to.equal(isTestnet)
+  expect(proposalRequest.owners).to.deep.equal([ownerAddress])
+  expect(proposalRequest.threshold).to.equal(1)
+  expect(proposalRequest.deploymentName).to.equal(projectName)
   expect(proposalRequest.chainIds).to.deep.equal(chainIds)
   expect(proposalRequest.diff.networks).to.deep.equal(previewNetworks)
 

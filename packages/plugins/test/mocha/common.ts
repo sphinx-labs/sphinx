@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'fs'
 import {
   execAsync,
   sleep,
+  sortHexStrings,
   DeploymentConfig,
   ConfigArtifacts,
   DeploymentInfo,
@@ -45,6 +46,14 @@ import {
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
+  GnosisSafeArtifact,
+  GnosisSafeProxyArtifact,
+  MultiSendArtifact,
+  SphinxModuleProxyFactoryABI,
+  getCompatibilityFallbackHandlerAddress,
+  getGnosisSafeProxyFactoryAddress,
+  getGnosisSafeSingletonAddress,
+  getMultiSendAddress,
   getSphinxModuleImplAddress,
   getSphinxModuleProxyFactoryAddress,
   Operation,
@@ -60,8 +69,6 @@ import {
   AccountAccessKind,
   ParsedAccountAccess,
   getCreateCallAddress,
-  getGnosisSafeProxyAddress,
-  getGnosisSafeInitializerData,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 
@@ -149,6 +156,130 @@ const isPortOpen = async (port: bigint): Promise<boolean> => {
     // If an error is thrown, it means the port is not in use
     return false
   }
+}
+
+export const getGnosisSafeInitializerData = (
+  owners: Array<string>,
+  threshold: number
+): string => {
+  if (owners.length === 0) {
+    throw new Error(
+      "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array."
+    )
+  }
+  if (threshold === 0) {
+    throw new Error(
+      "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0."
+    )
+  }
+
+  // Sort the owner addresses
+  const sortedOwners = sortHexStrings(owners)
+
+  const sphinxModuleProxyFactoryAddress = getSphinxModuleProxyFactoryAddress()
+
+  const sphinxModuleProxyFactory = new ethers.Contract(
+    sphinxModuleProxyFactoryAddress,
+    SphinxModuleProxyFactoryABI
+  )
+
+  // Encode the data for deploying the Sphinx Module
+  const encodedDeployModuleCall =
+    sphinxModuleProxyFactory.interface.encodeFunctionData(
+      'deploySphinxModuleProxyFromSafe',
+      [ethers.ZeroHash]
+    )
+
+  // Encode the data in a format for MultiSend
+  const deployModuleMultiSendData = ethers.solidityPacked(
+    ['uint8', 'address', 'uint', 'uint', 'bytes'],
+    [
+      Operation.Call,
+      sphinxModuleProxyFactoryAddress,
+      0,
+      ethers.getBytes(encodedDeployModuleCall).length,
+      encodedDeployModuleCall,
+    ]
+  )
+
+  // Similar encoding for enabling the Sphinx Module
+  const encodedEnableModuleCall =
+    sphinxModuleProxyFactory.interface.encodeFunctionData(
+      'enableSphinxModuleProxyFromSafe',
+      [ethers.ZeroHash]
+    )
+
+  const enableModuleMultiSendData = ethers.solidityPacked(
+    ['uint8', 'address', 'uint', 'uint', 'bytes'],
+    [
+      Operation.DelegateCall,
+      sphinxModuleProxyFactoryAddress,
+      0,
+      ethers.getBytes(encodedEnableModuleCall).length,
+      encodedEnableModuleCall,
+    ]
+  )
+
+  // Encode the entire MultiSend data
+  const multiSend = new ethers.Contract(
+    getMultiSendAddress(),
+    MultiSendArtifact.abi
+  )
+  const multiSendData = multiSend.interface.encodeFunctionData('multiSend', [
+    ethers.concat([deployModuleMultiSendData, enableModuleMultiSendData]),
+  ])
+
+  // Encode the call to the Gnosis Safe's `setup` function
+  const gnosisSafe = new ethers.Contract(
+    getGnosisSafeSingletonAddress(),
+    GnosisSafeArtifact.abi
+  )
+  const safeInitializerData = gnosisSafe.interface.encodeFunctionData('setup', [
+    sortedOwners,
+    threshold,
+    getMultiSendAddress(),
+    multiSendData,
+    // This is the default fallback handler used by Gnosis Safe during their
+    // standard deployments.
+    getCompatibilityFallbackHandlerAddress(),
+    // The following fields are for specifying an optional payment as part of the
+    // deployment. We don't use them.
+    ethers.ZeroAddress,
+    0,
+    ethers.ZeroAddress,
+  ])
+
+  return safeInitializerData
+}
+
+export const getGnosisSafeProxyAddress = (
+  owners: Array<string>,
+  threshold: number,
+  saltNonce: number
+): string => {
+  const sortedOwners = sortHexStrings(owners)
+  const safeInitializerData = getGnosisSafeInitializerData(
+    sortedOwners,
+    threshold
+  )
+
+  const salt = ethers.keccak256(
+    ethers.solidityPacked(
+      ['bytes32', 'uint256'],
+      [ethers.keccak256(safeInitializerData), saltNonce]
+    )
+  )
+
+  const deploymentData = ethers.solidityPacked(
+    ['bytes', 'uint256'],
+    [GnosisSafeProxyArtifact.bytecode, getGnosisSafeSingletonAddress()]
+  )
+
+  return ethers.getCreate2Address(
+    getGnosisSafeProxyFactoryAddress(),
+    salt,
+    ethers.keccak256(deploymentData)
+  )
 }
 
 export const getEIP1167CloneAddress = (

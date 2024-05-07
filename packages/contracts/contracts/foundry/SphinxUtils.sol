@@ -19,18 +19,14 @@ import {
     NetworkInfo,
     NetworkType,
     Network,
-    InternalSphinxConfig,
+    SphinxConfig,
     InitialChainState,
     OptionalAddress,
     Wallet,
     ExecutionMode,
     SystemContractInfo,
     GnosisSafeTransaction,
-    ParsedAccountAccess,
-    SphinxLockProject,
-    DefaultSafe,
-    SphinxLockProject,
-    UserSphinxConfig
+    ParsedAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ICreateCall } from "./interfaces/ICreateCall.sol";
@@ -40,7 +36,7 @@ import { IMultiSend } from "./interfaces/IMultiSend.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
 
 interface ISphinxScript {
-    function sphinxFetchConfig() external view returns (UserSphinxConfig memory);
+    function sphinxFetchConfig() external view returns (SphinxConfig memory);
     function configureSphinx() external;
 }
 
@@ -255,11 +251,15 @@ contract SphinxUtils is SphinxConstants {
         return trimmed;
     }
 
-    function isConfigObjectEmpty(UserSphinxConfig memory _config) internal pure returns (bool) {
+    function isConfigObjectEmpty(SphinxConfig memory _config) internal pure returns (bool) {
         if (
+            _config.owners.length == 0 &&
+            _config.threshold == 0 &&
+            bytes(_config.projectName).length == 0 &&
             _config.mainnets.length == 0 &&
             _config.testnets.length == 0 &&
-            bytes(_config.projectName).length == 0
+            _config.saltNonce == 0 &&
+            bytes(_config.orgId).length == 0
         ) {
             return true;
         } else {
@@ -267,7 +267,7 @@ contract SphinxUtils is SphinxConstants {
         }
     }
 
-    function fetchAndValidateConfig(address _script) public returns (UserSphinxConfig memory) {
+    function fetchAndValidateConfig(address _script) public returns (SphinxConfig memory) {
         // We keep track of if we've called the configureSphinx() function yet or not so we
         // can avoid situations where there would be an infinite loop due to user calling
         // safeAddress() from their configureSphinx() function.
@@ -276,9 +276,38 @@ contract SphinxUtils is SphinxConstants {
             ISphinxScript(_script).configureSphinx();
         }
 
-        UserSphinxConfig memory config = ISphinxScript(_script).sphinxFetchConfig();
+        SphinxConfig memory config = ISphinxScript(_script).sphinxFetchConfig();
         validate(config);
         return config;
+    }
+
+    function assertValidOwners(SphinxConfig memory _config) private pure {
+        require(
+            _config.owners.length > 0,
+            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
+        );
+
+        for (uint256 i = 0; i < _config.owners.length; i++) {
+            // We prevent the owners from being either address(0) or address(0x1)
+            // address(0x1) is the SENTINEL_ADDRESS which is a special address used
+            // by Safe to handle their owner implementation. We check for it here for
+            // completeness, but it's unlikely the user would ever actually use that
+            // value so we don't mention it in the error message.
+            if (_config.owners[i] == address(0) || _config.owners[i] == address(0x1)) {
+                string memory ownerString = _config.owners[i] == address(0)
+                    ? "address(0)"
+                    : "address(1)";
+                revert(
+                    string(
+                        abi.encodePacked(
+                            "Sphinx: Detected owner that is, ",
+                            ownerString,
+                            ". Gnosis Safe prevents you from using this address as an owner."
+                        )
+                    )
+                );
+            }
+        }
     }
 
     /**
@@ -286,7 +315,7 @@ contract SphinxUtils is SphinxConstants {
      *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
      *         proposals, broadcasting, etc).
      */
-    function validate(UserSphinxConfig memory _config) public pure {
+    function validate(SphinxConfig memory _config) public pure {
         // We still explicitly check if the config is empty b/c you could define the sphinxConfig
         // function, but not actually configure any options in it.
         if (isConfigObjectEmpty(_config)) {
@@ -295,9 +324,30 @@ contract SphinxUtils is SphinxConstants {
             );
         }
 
+        assertValidOwners(_config);
+
+        require(
+            _config.threshold > 0,
+            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this function."
+        );
+        require(
+            _config.owners.length >= _config.threshold,
+            "Sphinx: Your 'sphinxConfig.threshold' field must be less than or equal to the number of owners in your 'owners' array."
+        );
         require(
             bytes(_config.projectName).length > 0,
-            "Sphinx: Your 'sphinxConfig.projectName' cannot be an empty string. Please retrieve it from Sphinx's UI."
+            "Sphinx: Your 'sphinxConfig.projectName' cannot be an empty string. Please enter a project name."
+        );
+
+        address[] memory duplicateOwners = getDuplicatedElements(_config.owners);
+        require(
+            duplicateOwners.length == 0,
+            string(
+                abi.encodePacked(
+                    "Sphinx: Your 'sphinxConfig.owners' array contains duplicate addresses: ",
+                    toString(duplicateOwners)
+                )
+            )
         );
     }
 
@@ -305,11 +355,10 @@ contract SphinxUtils is SphinxConstants {
      * @notice Performs validation for a broadcast on a live network (i.e. not an Anvil or Hardhat
      *         node).
      */
-    function validateLiveNetworkCLI(IGnosisSafe _safe, address _script) external {
-        SphinxLockProject memory _project = fetchProjectFromLock(_script);
+    function validateLiveNetworkCLI(SphinxConfig memory _config, IGnosisSafe _safe) external view {
         require(
-            _project.defaultSafe.owners.length == 1,
-            "Sphinx: You cannot use the Deploy CLI with projects that have multiple owners."
+            _config.owners.length == 1,
+            "Sphinx: There must be a single owner in your 'owners' array."
         );
 
         // We use a try/catch instead of `vm.envOr` because `vm.envOr` is a potentially
@@ -324,7 +373,7 @@ contract SphinxUtils is SphinxConstants {
 
         address deployer = vm.addr(privateKey);
         require(
-            deployer == _project.defaultSafe.owners[0],
+            deployer == _config.owners[0],
             string(
                 abi.encodePacked(
                     "Sphinx: The address corresponding to your 'PRIVATE_KEY' environment variable must match the address in the 'owners' array.\n",
@@ -332,7 +381,7 @@ contract SphinxUtils is SphinxConstants {
                     vm.toString(deployer),
                     "\n",
                     "Address in the 'owners' array: ",
-                    vm.toString(_project.defaultSafe.owners[0])
+                    vm.toString(_config.owners[0])
                 )
             )
         );
@@ -375,7 +424,11 @@ contract SphinxUtils is SphinxConstants {
     }
 
     function validateProposal(address _script) external {
-        fetchAndValidateConfig(_script);
+        SphinxConfig memory config = fetchAndValidateConfig(_script);
+        require(
+            bytes(config.orgId).length > 0,
+            "Sphinx: Your 'sphinxConfig.orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
+        );
     }
 
     function getGnosisSafeProxyInitCode() internal pure returns (bytes memory) {
@@ -384,13 +437,11 @@ contract SphinxUtils is SphinxConstants {
     }
 
     function getGnosisSafeProxyAddress(address _script) public returns (address) {
-        (
-            bytes memory safeInitializerData,
-            SphinxLockProject memory project
-        ) = getGnosisSafeInitializerData(_script);
+        bytes memory safeInitializerData = getGnosisSafeInitializerData(_script);
+        SphinxConfig memory _config = fetchAndValidateConfig(_script);
 
         bytes32 salt = keccak256(
-            abi.encodePacked(keccak256(safeInitializerData), project.defaultSafe.saltNonce)
+            abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
         );
         bytes memory safeProxyInitCode = getGnosisSafeProxyInitCode();
         bytes memory deploymentData = abi.encodePacked(
@@ -471,12 +522,12 @@ contract SphinxUtils is SphinxConstants {
      */
     function getGnosisSafeInitializerData(
         address _script
-    ) internal returns (bytes memory safeInitializerData, SphinxLockProject memory project) {
-        project = fetchProjectFromLock(_script);
+    ) internal returns (bytes memory safeInitializerData) {
+        SphinxConfig memory _config = fetchAndValidateConfig(_script);
 
         // Sort the owner addresses. This provides a consistent ordering, which makes it easier
         // to calculate the `CREATE2` address of the Gnosis Safe off-chain.
-        address[] memory sortedOwners = sortAddresses(project.defaultSafe.owners);
+        address[] memory sortedOwners = sortAddresses(_config.owners);
 
         ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
             sphinxModuleProxyFactoryAddress
@@ -530,7 +581,7 @@ contract SphinxUtils is SphinxConstants {
             IGnosisSafe.setup.selector,
             abi.encode(
                 sortedOwners,
-                project.defaultSafe.threshold,
+                _config.threshold,
                 multiSendAddress,
                 multiSendData,
                 // This is the default fallback handler used by Gnosis Safe during their
@@ -754,9 +805,7 @@ contract SphinxUtils is SphinxConstants {
         return finalJson;
     }
 
-    function serializeSphinxConfig(
-        InternalSphinxConfig memory config
-    ) internal returns (string memory) {
+    function serializeSphinxConfig(SphinxConfig memory config) internal returns (string memory) {
         // Set the object key to an empty JSON, which ensures that there aren't any existing values
         // stored in memory for the object key.
         vm.serializeJson(sphinxConfigKey, "{}");
@@ -1010,7 +1059,7 @@ contract SphinxUtils is SphinxConstants {
      *         script is called.
      */
     function initializeDeploymentInfo(
-        UserSphinxConfig memory _config,
+        SphinxConfig memory _config,
         ExecutionMode _executionMode,
         address _executor,
         address _scriptAddress
@@ -1018,10 +1067,6 @@ contract SphinxUtils is SphinxConstants {
         address safe = getGnosisSafeProxyAddress(_scriptAddress);
         address module = getSphinxModuleAddress(_scriptAddress);
 
-        (
-            bytes memory safeInitData,
-            SphinxLockProject memory project
-        ) = getGnosisSafeInitializerData(_scriptAddress);
         FoundryDeploymentInfo memory deploymentInfo;
         deploymentInfo.executionMode = _executionMode;
         deploymentInfo.executorAddress = _executor;
@@ -1029,15 +1074,15 @@ contract SphinxUtils is SphinxConstants {
         deploymentInfo.moduleAddress = module;
         deploymentInfo.chainId = block.chainid;
         deploymentInfo.blockGasLimit = block.gaslimit;
-        deploymentInfo.safeInitData = safeInitData;
-        deploymentInfo.newConfig = InternalSphinxConfig({
-            projectName: project.projectName,
+        deploymentInfo.safeInitData = getGnosisSafeInitializerData(_scriptAddress);
+        deploymentInfo.newConfig = SphinxConfig({
+            projectName: _config.projectName,
+            owners: _config.owners,
+            threshold: _config.threshold,
+            orgId: _config.orgId,
             mainnets: _config.mainnets,
             testnets: _config.testnets,
-            threshold: project.defaultSafe.threshold,
-            saltNonce: project.defaultSafe.saltNonce,
-            owners: project.defaultSafe.owners,
-            orgId: project.orgId
+            saltNonce: _config.saltNonce
         });
         deploymentInfo.initialState = getInitialChainState(safe, ISphinxModule(module));
         deploymentInfo.nonce = getMerkleRootNonce(ISphinxModule(module));
@@ -1249,44 +1294,5 @@ contract SphinxUtils is SphinxConstants {
         );
 
         return _deploymentInfo;
-    }
-
-    function concatJsonPath(string memory a, string memory b) public pure returns (string memory) {
-        return string(abi.encodePacked(a, ".", b));
-    }
-
-    function fetchProjectFromLock(address _script) public returns (SphinxLockProject memory) {
-        UserSphinxConfig memory _config = fetchAndValidateConfig(_script);
-        string memory root = vm.projectRoot();
-        string memory path = string(abi.encodePacked(root, "/sphinx.lock"));
-        string memory json = vm.readFile(path);
-
-        string memory basePath = concatJsonPath(".projects", _config.projectName);
-        bool exists = vm.keyExists(json, basePath);
-        if (!exists) {
-            revert(
-                string(
-                    abi.encodePacked(
-                        "Project with the name ",
-                        bytes(_config.projectName),
-                        " was not found in the `sphinx.lock` file. You need to register this project in the Sphinx UI and then run `npx sphinx sync` to generate the latest `sphinx.lock` file. We recommend committing this file to version control."
-                    )
-                )
-            );
-        }
-
-        string memory safePath = concatJsonPath(basePath, "defaultSafe");
-        SphinxLockProject memory project = SphinxLockProject({
-            projectName: vm.parseJsonString(json, concatJsonPath(basePath, "projectName")),
-            orgId: vm.parseJsonString(json, ".orgId"),
-            defaultSafe: DefaultSafe({
-                owners: vm.parseJsonAddressArray(json, concatJsonPath(safePath, "owners")),
-                safeName: vm.parseJsonString(json, concatJsonPath(safePath, "safeName")),
-                threshold: vm.parseJsonUint(json, concatJsonPath(safePath, "threshold")),
-                saltNonce: vm.parseJsonUint(json, concatJsonPath(safePath, "saltNonce"))
-            })
-        });
-
-        return project;
     }
 }

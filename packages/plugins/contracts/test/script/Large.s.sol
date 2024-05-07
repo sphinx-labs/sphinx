@@ -8,7 +8,11 @@ import { Network } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTy
 
 contract Simple is Script, Sphinx {
     function configureSphinx() public override {
-        sphinxConfig.projectName = "Simple_Project";
+        sphinxConfig.projectName = "Large_Project";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+
+        sphinxConfig.orgId = "test-org-id";
     }
 
     function deploy(uint256 _numDeployments) public sphinx {

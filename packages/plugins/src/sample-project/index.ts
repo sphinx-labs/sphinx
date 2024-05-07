@@ -4,7 +4,8 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import ora from 'ora'
-import { spawnAsync, syncSphinxLock } from '@sphinx-labs/core'
+import { ethers } from 'ethers'
+import { spawnAsync } from '@sphinx-labs/core'
 
 import {
   fetchDotEnvFile,
@@ -71,7 +72,7 @@ export const init = async (
   orgId: string,
   sphinxApiKey: string,
   alchemyApiKey: string,
-  project: string
+  rawOwnerAddress: string
 ) => {
   const spinner = ora()
   spinner.start(`Initializing sample Sphinx project...`)
@@ -83,6 +84,9 @@ export const init = async (
   const contractDirPath = 'src'
   const testDirPath = 'test'
   const scriptDirPath = 'script'
+
+  // Convert the raw address to a checksum address.
+  const owner = ethers.getAddress(rawOwnerAddress)
 
   // Create the script folder if it doesn't exist
   if (!fs.existsSync(scriptDirPath)) {
@@ -103,7 +107,7 @@ export const init = async (
   const scriptPath = path.join(scriptDirPath, sampleScriptFileName)
   fs.writeFileSync(
     scriptPath,
-    getSampleScriptFile(scriptDirPath, contractDirPath, project)
+    getSampleScriptFile(owner, orgId, scriptDirPath, contractDirPath)
   )
 
   // Create the sample contract.
@@ -120,11 +124,9 @@ export const init = async (
   fs.writeFileSync('.gitignore', sampleGitIgnoreFile)
   fs.writeFileSync('foundry.toml', fetchForgeConfig(true))
   // Create a `.env` file that contains the Sphinx API Key and Alchemy API Key supplied by the user.
-  fs.writeFileSync('.env', fetchDotEnvFile(sphinxApiKey, orgId, alchemyApiKey))
+  fs.writeFileSync('.env', fetchDotEnvFile(sphinxApiKey, alchemyApiKey))
 
   spinner.succeed('Initialized sample Sphinx project.')
-
-  await syncSphinxLock(orgId, sphinxApiKey)
 
   await handleInstall(spinner)
 

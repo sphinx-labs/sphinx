@@ -35,13 +35,16 @@ abstract contract Sphinx_Test_Abstract is Test, Sphinx, SphinxTestUtils {
     }
 
     function configureSphinx() public override {
-        sphinxConfig.projectName = "Simple_Project";
+        sphinxConfig.projectName = "test_project";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+        sphinxConfig.orgId = "test-org-id";
     }
 }
 
 contract Sphinx_Test is Sphinx_Test_Abstract {
     function test_sphinxModule_success_standard() external {
-        IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe());
+        IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe(sphinxConfig));
 
         (address[] memory modules, ) = safeProxy.getModulesPaginated(address(0x1), 1);
         address sphinxModule = modules[0];
@@ -52,8 +55,8 @@ contract Sphinx_Test is Sphinx_Test_Abstract {
     }
 
     function test_sphinxModule_success_nonZeroSaltNonce() external {
-        sphinxConfig.projectName = "Simple_Project_1";
-        IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe());
+        sphinxConfig.saltNonce = 1;
+        IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe(sphinxConfig));
 
         (address[] memory modules, ) = safeProxy.getModulesPaginated(address(0x1), 1);
         address sphinxModule = modules[0];
@@ -117,7 +120,10 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
     }
 
     function configureSphinx() public override {
-        sphinxConfig.projectName = "Simple_Project";
+        sphinxConfig.projectName = "test_project";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+        sphinxConfig.orgId = "test-org-id";
     }
 
     function test_sphinxCollectProposal_success_fundSafe_anvil() external {
@@ -315,8 +321,8 @@ contract Sphinx_Test_Airdrop_Funds is Test, Sphinx, SphinxTestUtils {
         // Ensure the Safe is deployed so we can test calling it with the balance check
         configureSphinx();
         deployModuleAndGnosisSafe(
-            deploymentInfo.newConfig.owners,
-            deploymentInfo.newConfig.threshold,
+            sphinxConfig.owners,
+            sphinxConfig.threshold,
             deploymentInfo.safeAddress
         );
 

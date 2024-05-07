@@ -8,8 +8,12 @@ import { Network } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTy
 
 contract Simple1 is Script, Sphinx {
     function configureSphinx() public override {
-        sphinxConfig.projectName = "Simple_Project";
+        sphinxConfig.projectName = "Simple_Project_1";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+
         sphinxConfig.mainnets = ["ethereum", "optimism_mainnet"];
+        sphinxConfig.orgId = "test-org-id";
     }
 
     function run() public sphinx {
@@ -26,7 +30,11 @@ contract Simple1 is Script, Sphinx {
 
 contract Simple2 is Script, Sphinx {
     function configureSphinx() public override {
-        sphinxConfig.projectName = "Simple_Project";
+        sphinxConfig.projectName = "Simple_Project_2";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+
+        sphinxConfig.orgId = "test-org-id";
     }
 
     function run() public sphinx {
@@ -36,7 +44,11 @@ contract Simple2 is Script, Sphinx {
 
 contract Simple3 is Script, Sphinx {
     function configureSphinx() public override {
-        sphinxConfig.projectName = "Simple_Project";
+        sphinxConfig.projectName = "Simple_Project_3";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+
+        sphinxConfig.orgId = "test-org-id";
     }
 
     function run() public sphinx {
