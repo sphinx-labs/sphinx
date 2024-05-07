@@ -12,11 +12,7 @@ import {
   isExecutionArtifact,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import {
-  ParsedAccountAccess,
-  getGnosisSafeProxyAddress,
-  remove0x,
-} from '@sphinx-labs/contracts'
+import { ParsedAccountAccess, remove0x } from '@sphinx-labs/contracts'
 import sinon from 'sinon'
 import { expect } from 'chai'
 
@@ -25,6 +21,7 @@ import {
   checkArtifacts,
   getAnvilRpcUrl,
   getEmptyDeploymentArtifacts,
+  getGnosisSafeProxyAddress,
   killAnvilNodes,
   makeDeployment,
   makeRevertingDeployment,

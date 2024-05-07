@@ -21,9 +21,10 @@ contract HelloSphinx {
 }
 
 export const getSampleScriptFile = (
+  owner: string,
+  orgId: string,
   scriptDirPath: string,
-  srcDirPath: string,
-  project: string
+  srcDirPath: string
 ) => {
   // Get the relative path from the test directory to the scripts directory. Note that this also
   // strips the trailing path separator ('/') from the contract directory path (if it exists), which
@@ -43,11 +44,17 @@ contract HelloSphinxScript is Sphinx, Script {
     HelloSphinx helloSphinx;
 
     function configureSphinx() public override {
-        sphinxConfig.projectName = "${project}";
+        sphinxConfig.owners = [${owner}];
+        sphinxConfig.orgId = "${orgId}";
+        sphinxConfig.threshold = 1;
+        sphinxConfig.projectName = "My_First_Project";
     }
 
     function run() public sphinx {
-        helloSphinx = new HelloSphinx("Hi", 2);
+        // Set the \`CREATE2\` salt to be the hash of the owner(s). Prevents
+        // address collisions.
+        bytes32 salt = keccak256(abi.encode(sphinxConfig.owners));
+        helloSphinx = new HelloSphinx{ salt: salt }("Hi", 2);
         helloSphinx.add(8);
     }
 }

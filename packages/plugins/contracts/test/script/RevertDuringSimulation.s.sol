@@ -9,7 +9,11 @@ import { RevertDuringSimulation } from "../RevertDuringSimulation.sol";
 
 contract RevertDuringSimulation_Script is Script, Sphinx {
     function configureSphinx() public override {
-        sphinxConfig.projectName = "Simple_Project";
+        sphinxConfig.projectName = "Revert_During_Simulation";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+
+        sphinxConfig.orgId = "test-org-id";
     }
 
     function run() public sphinx {

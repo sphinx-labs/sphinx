@@ -11,7 +11,9 @@ contract Sample is Sphinx {
     MyContract1 myContract;
 
     function configureSphinx() public override {
-        sphinxConfig.projectName = "my_sphinx";
+        sphinxConfig.projectName = "test_project";
+        sphinxConfig.owners = [0x226F14C3e19788934Ff37C653Cf5e24caD198341];
+        sphinxConfig.threshold = 1;
         sphinxConfig.testnets = [
             "sepolia",
             "arbitrum_sepolia",
@@ -20,10 +22,10 @@ contract Sample is Sphinx {
             "polygon_mumbai",
             "fantom_testnet",
             "bnb_testnet",
-            "gnosis_chiado",
+            // "gnosis_chiado",
             "base_sepolia",
             "celo_alfajores",
-            "moonbase_alpha",
+            // "moonbase_alpha",
             "evmos_testnet",
             "kava_testnet",
             "scroll_sepolia",
@@ -31,6 +33,8 @@ contract Sample is Sphinx {
             "rari_sepolia"
         ];
         sphinxConfig.mainnets = ["ethereum", "arbitrum"];
+        sphinxConfig.orgId = "clo6byksj0001cbld6lelntej";
+        sphinxConfig.saltNonce = 2132412;
     }
 
     function run() public sphinx {

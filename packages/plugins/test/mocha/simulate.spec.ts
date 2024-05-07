@@ -14,16 +14,14 @@ import {
   sphinxCoreUtils,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import {
-  SPHINX_NETWORKS,
-  getGnosisSafeProxyAddress,
-} from '@sphinx-labs/contracts'
+import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
 import sinon from 'sinon'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import sinonChai from 'sinon-chai'
 
 import {
   getAnvilRpcUrl,
+  getGnosisSafeProxyAddress,
   killAnvilNodes,
   makeDeployment,
   makeStandardDeployment,
