@@ -13,8 +13,8 @@ import {
   relayProposal,
   storeDeploymentConfig,
   userConfirmation,
+  InProcessEthersProvider,
 } from '@sphinx-labs/core'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
@@ -41,7 +41,7 @@ export type SphinxContext = {
   ) => GetConfigArtifacts
   prompt: (question: string) => Promise<void>
   isLiveNetwork: (
-    provider: SphinxJsonRpcProvider | HardhatEthersProvider
+    provider: SphinxJsonRpcProvider | InProcessEthersProvider
   ) => Promise<boolean>
   propose: (args: ProposeArgs) => Promise<{
     proposalRequest?: ProposalRequest
