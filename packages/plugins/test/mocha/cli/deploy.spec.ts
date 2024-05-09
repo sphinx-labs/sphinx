@@ -138,7 +138,7 @@ describe('Deploy CLI command', () => {
   })
 
   describe('With preview', () => {
-    it.only('Executes deployment on local network twice', async () => {
+    it('Executes deployment on local network twice', async () => {
       const artifact = parseFoundryContractArtifact(MyContract2Artifact)
       const safeAddress = getGnosisSafeProxyAddress(
         ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'],
