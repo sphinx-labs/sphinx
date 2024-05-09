@@ -10,7 +10,7 @@ import {
   SphinxJsonRpcProvider,
   fetchNameForNetwork,
   isFork,
-  stripLeadingZero,
+  // stripLeadingZero,
   isLiveNetwork,
   fundAccountMaxBalance,
   signMerkleRoot,
