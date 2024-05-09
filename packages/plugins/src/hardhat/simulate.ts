@@ -188,7 +188,6 @@ export const simulate = async (
     //    resolved this error.
     // 3. This error is only thrown when hardcoding the block number in the Hardhat config. When we
     //    don't hardcode it, Hardhat uses the default hardfork, which is the behavior we want.
-
     // Fast forward the block number. This is necessary to prevent the following edge case:
     // 1. Some transactions are executed on the local network. These transactions could either be
     //    sent by the Sphinx team (during testing) or by the user during local development.
@@ -197,12 +196,12 @@ export const simulate = async (
     //    is meant to protect against chain reorgs on forks of live networks.
     // 3. The simulation fails because the transactions executed in step 1 don't exist on the
     //    Hardhat fork.
-    const blocksToFastForward = getLargestReorg(chainId)
-    const blocksHex = stripLeadingZero(ethers.toBeHex(blocksToFastForward))
-    await provider.send(
-      'hardhat_mine', // The `hardhat_mine` RPC method works on Anvil and Hardhat nodes.
-      [blocksHex]
-    )
+    // const blocksToFastForward = getLargestReorg(chainId)
+    // const blocksHex = stripLeadingZero(ethers.toBeHex(blocksToFastForward))
+    // await provider.send(
+    //   'hardhat_mine', // The `hardhat_mine` RPC method works on Anvil and Hardhat nodes.
+    //   [blocksHex]
+    // )
   }
 
   const hardhatRunnerPath = join(
