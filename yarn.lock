@@ -5049,7 +5049,7 @@ hardhat@2.20.1, hardhat@^2.8.0:
     uuid "^8.3.2"
     ws "^7.4.6"
 
-hardhat@2.22.3:
+hardhat@^2.21.0:
   version "2.22.3"
   resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.22.3.tgz#50605daca6b29862397e446c42ec14c89430bec3"
   integrity sha512-k8JV2ECWNchD6ahkg2BR5wKVxY0OiKot7fuxiIpRK0frRqyOljcR2vKwgWSLw6YIeDcNNA4xybj7Og7NSxr2hA==
