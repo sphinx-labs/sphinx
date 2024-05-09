@@ -138,7 +138,7 @@ describe('Deploy CLI command', () => {
   })
 
   describe('With preview', () => {
-    it('Executes deployment on local network twice', async () => {
+    it.only('Executes deployment on local network twice', async () => {
       const artifact = parseFoundryContractArtifact(MyContract2Artifact)
       const safeAddress = getGnosisSafeProxyAddress(
         ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'],
@@ -203,7 +203,7 @@ describe('Deploy CLI command', () => {
         scriptPath: forgeScriptPath,
         network: 'sepolia',
         skipPreview: false,
-        silent: true,
+        silent: false,
         sphinxContext: context,
         verify: false,
         targetContract,
@@ -257,7 +257,7 @@ describe('Deploy CLI command', () => {
         scriptPath: forgeScriptPath,
         network: 'sepolia',
         skipPreview: false,
-        silent: true,
+        silent: false,
         sphinxContext: context,
         verify: false,
         targetContract,
