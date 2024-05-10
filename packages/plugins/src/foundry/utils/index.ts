@@ -1153,15 +1153,9 @@ export const getEstimatedGas = async (
 export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
   deploymentConfig: DeploymentConfig,
   chainId: string,
-  rpcUrl: string,
-  cachePath: string
+  rpcUrl: string
 ): Promise<NetworkGasEstimate> => {
-  const { transactions } = await simulate(
-    deploymentConfig,
-    chainId,
-    rpcUrl,
-    cachePath
-  )
+  const { transactions } = await simulate(deploymentConfig, chainId, rpcUrl)
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
   const { estimatedGas } = await getEstimatedGas(transactions, provider)
