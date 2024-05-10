@@ -11,7 +11,7 @@ contract Sample is Sphinx {
     MyContract1 myContract;
 
     function configureSphinx() public override {
-        sphinxConfig.projectName = "Simple_Project";
+        sphinxConfig.projectName = "my_sphinx";
         sphinxConfig.testnets = [
             "sepolia",
             "arbitrum_sepolia",
