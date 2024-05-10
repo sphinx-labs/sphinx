@@ -377,7 +377,8 @@ export const propose = async (
       sphinxContext.getNetworkGasEstimate(
         deploymentConfig,
         networkConfig.chainId,
-        rpcUrl
+        rpcUrl,
+        foundryToml.cachePath
       )
     )
   const gasEstimates = await Promise.all(gasEstimatesPromises)

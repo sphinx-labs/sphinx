@@ -12,7 +12,6 @@ import {
   getOwnerAddress,
   getSphinxConstants,
 } from '@sphinx-labs/contracts'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import ora from 'ora'
 
 import {
@@ -22,7 +21,7 @@ import {
   getImpersonatedSigner,
   fundAccountMaxBalance,
 } from '../../utils'
-import { SphinxJsonRpcProvider } from '../../provider'
+import { InProcessEthersProvider, SphinxJsonRpcProvider } from '../../provider'
 import { ExecutionMode, RELAYER_ROLE } from '../../constants'
 import {
   fetchDripSizeForNetwork,
@@ -31,7 +30,7 @@ import {
 } from '../../networks'
 
 export const ensureSphinxAndGnosisSafeDeployed = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider,
   wallet: ethers.Wallet,
   executionMode: ExecutionMode,
   includeManagedServiceRoles: boolean,
@@ -58,7 +57,7 @@ export const ensureSphinxAndGnosisSafeDeployed = async (
 
 export const cancelPreviousDripVersions = async (
   Drippie: Contract,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider,
   wallet: ethers.Signer,
   executionMode: ExecutionMode,
   dripName: string,
@@ -103,7 +102,7 @@ export const cancelPreviousDripVersions = async (
 }
 
 export const checkSystemDeployed = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ): Promise<boolean> => {
   const contracts = getSphinxConstants()
 
@@ -120,7 +119,7 @@ export const checkSystemDeployed = async (
 }
 
 export const assignManagedServiceRoles = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider,
   signer: ethers.Signer,
   relayers: string[],
   executionMode: ExecutionMode,
@@ -268,7 +267,7 @@ export const assignManagedServiceRoles = async (
 }
 
 export const deploySphinxSystem = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider,
   signer: ethers.Signer,
   relayers: string[],
   executionMode: ExecutionMode,
@@ -319,7 +318,7 @@ export const deploySphinxSystem = async (
 }
 
 export const getDeterministicFactoryAddress = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ) => {
   // Deploy the deterministic deployer.
   if (
@@ -367,7 +366,7 @@ export const getDeterministicFactoryAddress = async (
 }
 
 export const doDeterministicDeploy = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider,
   executionMode: ExecutionMode,
   options: {
     contract: {
