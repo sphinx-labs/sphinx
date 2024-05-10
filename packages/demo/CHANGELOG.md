@@ -1,5 +1,18 @@
 # @sphinx-labs/demo
 
+## 0.13.0
+
+### Minor Changes
+
+- a978b3b: Move project registration onto website
+
+### Patch Changes
+
+- Updated dependencies [a978b3b]
+  - @sphinx-labs/contracts@0.22.0
+  - @sphinx-labs/plugins@0.32.0
+  - @sphinx-labs/core@0.25.0
+
 ## 0.12.9
 
 ### Patch Changes
