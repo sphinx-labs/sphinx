@@ -1,8 +1,6 @@
 import { join } from 'path'
-import { existsSync } from 'fs'
 
 import {
-  spawnAsync,
   getSphinxWalletPrivateKey,
   SphinxTransactionReceipt,
   ExecutionMode,
@@ -10,7 +8,6 @@ import {
   SphinxJsonRpcProvider,
   fetchNameForNetwork,
   isFork,
-  stripLeadingZero,
   isLiveNetwork,
   fundAccountMaxBalance,
   signMerkleRoot,
@@ -32,14 +29,17 @@ import {
   convertEthersTransactionResponse,
   SphinxTransactionResponse,
   sphinxCoreUtils,
+  InProcessEthersProvider,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {
   FALLBACK_MAX_REORG,
   getLargestPossibleReorg,
 } from 'hardhat/internal/hardhat-network/provider/utils/reorgs-protection'
 import pLimit from 'p-limit'
+import { createProvider } from 'hardhat/internal/core/providers/construction'
+import { resolveConfig } from 'hardhat/internal/core/config/config-resolution'
+import { HardhatConfig } from 'hardhat/types'
 
 import {
   HardhatResetNotAllowedErrorMessage,
@@ -69,21 +69,6 @@ export const simulationConstants = {
 }
 
 /**
- * These arguments are passed into the Hardhat subtask that simulates a user's deployment. There
- * can't be any functions as arguments because we pass them into a child process. There also
- * shouldn't be any fields that contain BigInts because we call `JSON.parse` to decode the data
- * returned by the subtask. (`JSON.parse` converts BigInts to strings).
- *
- * @property {Array<NetworkConfig>} networkConfigArray The NetworkConfig on all networks. This is
- * necessary to create the entire Merkle tree in the simulation, which ensures we use the same
- * Merkle root in both the simulation and the production environment.
- */
-export type simulateDeploymentSubtaskArgs = {
-  deploymentConfig: DeploymentConfig
-  chainId: string
-}
-
-/**
  * Simulate a deployment on a fork of the target network. We use Hardhat instead of Foundry to run
  * the simulation for two reasons:
  *
@@ -107,13 +92,11 @@ export type simulateDeploymentSubtaskArgs = {
 export const simulate = async (
   deploymentConfig: DeploymentConfig,
   chainId: string,
-  rpcUrl: string
+  rpcUrl: string,
+  cachePath: string
 ): Promise<{
   transactions: SimulationTransactions
 }> => {
-  const rootPluginPath =
-    process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
-
   const provider = new SphinxJsonRpcProvider(rpcUrl)
 
   const networkConfig = fetchNetworkConfigFromDeploymentConfig(
@@ -121,31 +104,8 @@ export const simulate = async (
     deploymentConfig
   )
 
-  const expectedHardhatConfigPath = join(
-    rootPluginPath,
-    'dist',
-    'hardhat.config.js'
-  )
-
-  if (!existsSync(expectedHardhatConfigPath)) {
-    throw new Error(
-      'Failed to locate simulation configuration. This is a bug, please report it to the developers'
-    )
-  }
-
-  const envVars = {
-    SPHINX_INTERNAL__FORK_URL: rpcUrl,
-    SPHINX_INTERNAL__CHAIN_ID: chainId,
-    SPHINX_INTERNAL__BLOCK_GAS_LIMIT: networkConfig.blockGasLimit,
-    // We must set the Hardhat config using an environment variable so that Hardhat recognizes the
-    // Hardhat config when we import the HRE in the child process.
-    HARDHAT_CONFIG: expectedHardhatConfigPath,
-  }
-
-  const taskParams: simulateDeploymentSubtaskArgs = {
-    deploymentConfig,
-    chainId,
-  }
+  const blockGasLimit = networkConfig.blockGasLimit
+  let blockNumber: string | undefined
 
   if ((await isLiveNetwork(provider)) || (await isFork(provider))) {
     // Use the block number from the Forge script minus the largest possible chain reorg size, which
@@ -166,10 +126,18 @@ export const simulate = async (
     // Sphinx supports as of now. If the edge case occurs, it will naturally resolve itself if the
     // user continues to attempt to propose/deploy. This is because the corresponding block will
     // eventually be included in the simulation after there have been enough block confirmations.
-    const blockNumber =
+    blockNumber = (
       BigInt(networkConfig.blockNumber) - BigInt(getLargestReorg(chainId))
-    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = blockNumber.toString()
+    ).toString()
   } else {
+    /**
+     * We've disabled the internal simulation when the target network is a local node due to a bug
+     * in hardhat that causes the simulation to fail in some situations.
+     * See CHU-1072 for more information:
+     * https://linear.app/chugsplash/issue/CHU-1072/re-enable-simulation-step-against-local-nodes
+     */
+    return { transactions: [] }
+
     // The network is a non-forked local node (i.e. an Anvil or Hardhat node with a fresh state). We
     // do not hardcode the block number in the Hardhat config to avoid the following edge case:
     // 1. Say we create an Anvil node with Ethereum's chain ID: `anvil --chain-id 1`. The block
@@ -188,7 +156,6 @@ export const simulate = async (
     //    resolved this error.
     // 3. This error is only thrown when hardcoding the block number in the Hardhat config. When we
     //    don't hardcode it, Hardhat uses the default hardfork, which is the behavior we want.
-
     // Fast forward the block number. This is necessary to prevent the following edge case:
     // 1. Some transactions are executed on the local network. These transactions could either be
     //    sent by the Sphinx team (during testing) or by the user during local development.
@@ -197,78 +164,29 @@ export const simulate = async (
     //    is meant to protect against chain reorgs on forks of live networks.
     // 3. The simulation fails because the transactions executed in step 1 don't exist on the
     //    Hardhat fork.
-    const blocksToFastForward = getLargestReorg(chainId)
-    const blocksHex = stripLeadingZero(ethers.toBeHex(blocksToFastForward))
-    await provider.send(
-      'hardhat_mine', // The `hardhat_mine` RPC method works on Anvil and Hardhat nodes.
-      [blocksHex]
-    )
+    // const blocksToFastForward = getLargestReorg(chainId)
+    // const blocksHex = stripLeadingZero(ethers.toBeHex(blocksToFastForward))
+    // await provider.send(
+    //   'hardhat_mine', // The `hardhat_mine` RPC method works on Anvil and Hardhat nodes.
+    //   [blocksHex]
+    // )
   }
 
-  const hardhatRunnerPath = join(
-    rootPluginPath,
-    'dist',
-    'hardhat',
-    'hardhatRunner.js'
-  )
-  // Execute the simulation in a child process. We don't run the simulation in the
-  // current process to prevent the following edge case that was discovered in Sphinx's test suite.
-  // First, some context: When Hardhat creates an in-process node that forks a standalone Anvil
-  // node, the Hardhat node listens to the Anvil port from the process in which the Hardhat node is
-  // created. In other words, if we create the Hardhat node in the current process and then call
-  // `lsof -t -i:<ANVIL_PORT>`, one of the returned PIDs will be the current PID (i.e.
-  // `process.pid`). Then, if we attempt to run `kill $(lsof -t -i:<ANVIL_PORT>)`, the current
-  // process will exit with a mysterious `SIGTERM` error. This issue caused Sphinx's test suite to
-  // exit early because we kill Anvil nodes after some test cases complete. It's possible
-  // (although unlikely) that this same situation could happen in a user's test suite. We resolve
-  // this by creating the Hardhat node in a child process via `spawnAsync`. This child process exits
-  // when `spawnAsync` returns.
-  const { stdout, stderr, code } = await spawnAsync(
-    'node',
-    [hardhatRunnerPath],
-    envVars,
-    JSON.stringify(taskParams)
-  )
-
-  if (code !== 0) {
-    const networkName = fetchNameForNetwork(BigInt(chainId))
-    let errorMessage: string = `Simulation failed for ${networkName} at block number ${networkConfig.blockNumber}.`
-    try {
-      // Attempt to decode the error message. This try-statement could theoretically throw an error
-      // if `stdout` isn't a valid JSON string.
-      const error = JSON.parse(stdout)
-
-      // If the stack trace includes the error message, we only use the stack trace so that we don't
-      // display the error reason twice.
-      if (
-        typeof error.stack === 'string' &&
-        error.stack.includes(error.message)
-      ) {
-        errorMessage += `\n\n${error.stack}`
-      } else {
-        // Display both the error message and the stack trace.
-        errorMessage += `\n\n${error.message}\n\n${error.stack}`
-      }
-    } catch {
-      // An error occurred while attempting to decode `stdout` into an error message. We'll display
-      // the raw `stdout` to the user in case it's useful.
-      errorMessage += `\n\n${stdout}`
-    }
-    throw new Error(errorMessage)
-  }
-
-  /**
-   * Occasionally an unexpected error can cause stdout to not conform to JSON format. This should never
-   * happen, but if it does we will error when attempting to parse stdout. So we use a try catch here
-   * and exit with the real value of stdout if an error occurs.
-   */
   try {
-    const transactions = JSON.parse(stdout).transactions
+    const { transactions } = await simulateDeployment(
+      deploymentConfig,
+      rpcUrl,
+      chainId,
+      blockGasLimit,
+      blockNumber,
+      cachePath
+    )
     return { transactions }
   } catch (e) {
-    console.log(stdout)
-    console.error(stderr)
-    process.exit(1)
+    const networkName = fetchNameForNetwork(BigInt(chainId))
+    const errorMessage: string = `Simulation failed for ${networkName} at block number ${networkConfig.blockNumber}.`
+    e.message = `${errorMessage}\n\n${e.message}`
+    throw e
   }
 }
 
@@ -303,7 +221,7 @@ export const setupPresimulationState = async (
  */
 export const fetchTransactionResponses = async (
   receipts: Array<SphinxTransactionReceipt>,
-  provider: HardhatEthersProvider
+  provider: InProcessEthersProvider
 ): Promise<SimulationTransactions> => {
   const chainId = (await provider.getNetwork()).chainId
 
@@ -337,14 +255,58 @@ export const fetchTransactionResponses = async (
  * be brittle because Hardhat could change their internal functionality in a future minor or patch
  * version.
  */
-export const simulateDeploymentSubtask = async (
-  taskArgs: simulateDeploymentSubtaskArgs,
-  hre: any
+export const simulateDeployment = async (
+  deploymentConfig: DeploymentConfig,
+  forkUrl: string,
+  chainId: string,
+  blockGasLimit: string,
+  blockNumber: string | undefined,
+  cachePath: string
 ): Promise<{ transactions: SimulationTransactions }> => {
-  // Wrap the Hardhat provider with a Proxy, which implements retry and timeout logic.
-  const provider = createHardhatEthersProviderProxy(hre.ethers.provider)
+  const config: HardhatConfig = resolveConfig('', {
+    paths: {
+      cache: join(process.cwd(), cachePath, '/sphinx'),
+    },
+    networks: {
+      hardhat: {
+        chainId: Number(chainId),
+        forking: {
+          url: forkUrl,
+          blockNumber:
+            typeof blockNumber === 'string' ? Number(blockNumber) : undefined,
+        },
+        blockGasLimit: Number(blockGasLimit),
+        // We don't use Hardhat's genesis accounts, so we set this to an empty array. This eliminates
+        // 20 RPC calls that Hardhat sends at the beginning of every simulation to get the nonce of
+        // each genesis account. (There's one RPC call per genesis account). Hardhat needs to get
+        // these nonces on forked networks because the private keys are publicly known.
+        //
+        // If a user's script uses one of these genesis accounts, Hardhat will fetch its nonce on an
+        // as-needed basis, which is the behavior that we want.
+        accounts: [],
+      },
+    },
+  })
 
-  const { deploymentConfig, chainId } = taskArgs
+  const IN_PROCESS_NETWORK_NAME = 'hardhat'
+
+  // Create a provider for an internal hardhat process
+  // We use `createProvider` directly because it allows us to avoid the use of hardhat subtasks which
+  // are heavyweight and should not be used in production.
+  const ethereumProvider = await createProvider(config, IN_PROCESS_NETWORK_NAME)
+
+  // Convert the hardhat in process provider to our custom `InProcessEthersProvider` which is compatible with ethers
+  // then further wrap that provider with a Proxy, which implements retry and timeout logic.
+  // We don't implement the timeout and retry logic directly on the `InProcessEthersProvider` class because it is forked
+  // from ethers and we prefer to minimize the modifications made to it.
+  const provider = createInProcessEthersProviderProxy(
+    new InProcessEthersProvider(ethereumProvider, {
+      name: IN_PROCESS_NETWORK_NAME,
+      config: config.networks.hardhat,
+      provider: ethereumProvider,
+    })
+  )
+
   const { merkleTree } = deploymentConfig
 
   const networkConfig = fetchNetworkConfigFromDeploymentConfig(
@@ -452,7 +414,7 @@ export const simulateDeploymentSubtask = async (
 
 export const handleSimulationSuccess = async (
   networkConfig: NetworkConfig,
-  provider: HardhatEthersProvider
+  provider: InProcessEthersProvider
 ) => {
   const contractAddresses = getContractAddressesFromNetworkConfig(networkConfig)
 
@@ -479,7 +441,7 @@ export const handleSimulationSuccess = async (
 }
 
 /**
- * Create a Proxy that wraps a `HardhatEthersProvider` to implement retry and timeout logic, which
+ * Create a Proxy that wraps a `InProcessEthersProvider` to implement retry and timeout logic, which
  * isn't robust in the native provider.
  *
  * This function uses a linear backoff strategy for retries. We use a multiple of 2, and start with
@@ -497,9 +459,9 @@ export const handleSimulationSuccess = async (
  * This edge case currently isn't an issue because we don't parallelize state-changing transactions
  * in the execution process.
  */
-export const createHardhatEthersProviderProxy = (
-  ethersProvider: HardhatEthersProvider
-): HardhatEthersProvider => {
+export const createInProcessEthersProviderProxy = (
+  ethersProvider: InProcessEthersProvider
+): InProcessEthersProvider => {
   const proxy = new Proxy(ethersProvider, {
     get: (target, prop) => {
       return (...args: any[]) => {
@@ -549,7 +511,7 @@ export const createHardhatEthersProviderProxy = (
 
               if (prop === 'getSigner') {
                 // By default, the `HardhatEthersProxy.getSigner` method returns a signer connected
-                // to the `HardhatEthersProvider` instead of this Proxy, which prevents our timeout
+                // to the `InProcessEthersProvider` instead of this Proxy, which prevents our timeout
                 // and retry logic from being used when the signer executes transactions. To avoid
                 // this, we set the signer's provider to be the current Proxy instance.
                 return (result as ethers.Signer).connect(proxy)

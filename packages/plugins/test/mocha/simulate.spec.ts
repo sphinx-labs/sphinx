@@ -10,8 +10,8 @@ import {
   isLiveNetwork,
   NetworkConfig,
   InvariantError,
-  sphinxCoreExecute,
   sphinxCoreUtils,
+  InProcessEthersProvider,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -19,7 +19,6 @@ import {
   getGnosisSafeProxyAddress,
 } from '@sphinx-labs/contracts'
 import sinon from 'sinon'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import sinonChai from 'sinon-chai'
 
 import {
@@ -33,17 +32,12 @@ import {
 } from './common'
 import {
   simulationConstants,
-  createHardhatEthersProviderProxy,
+  createInProcessEthersProviderProxy,
   getUndeployedContractErrorMesage,
   handleSimulationSuccess,
   simulate,
-  simulateDeploymentSubtask,
 } from '../../src/hardhat/simulate'
-import {
-  dummyUnlabeledAddress,
-  getDummyDeploymentConfig,
-  getDummyNetworkConfig,
-} from './dummy'
+import { dummyUnlabeledAddress, getDummyNetworkConfig } from './dummy'
 import {
   HardhatResetNotAllowedErrorMessage,
   getRpcRequestStalledErrorMessage,
@@ -119,7 +113,8 @@ describe('Simulate', () => {
         simulate(
           deploymentConfig,
           networkConfig.chainId,
-          fetchURLForNetwork(BigInt(networkConfig.chainId))
+          fetchURLForNetwork(BigInt(networkConfig.chainId)),
+          'forge-cache'
         )
       )
     )
@@ -165,55 +160,19 @@ describe('Simulate', () => {
     await simulate(
       deploymentConfig,
       networkConfig.chainId,
-      getAnvilRpcUrl(ethereumChainId)
+      getAnvilRpcUrl(ethereumChainId),
+      'forge-cache'
     )
 
     await killAnvilNodes([ethereumChainId])
   })
 })
 
-describe('simulateDeploymentSubtask', () => {
-  const testInvariantErrorMessage = 'Test InvariantError'
-  const hre: any = {}
-  hre.ethers = {}
-
-  let providerStub: sinon.SinonStubbedInstance<HardhatEthersProvider>
-
-  beforeEach(() => {
-    providerStub = sinon.createStubInstance(HardhatEthersProvider)
-    hre.ethers.provider = providerStub
-
-    sinon
-      .stub(sphinxCoreExecute, 'attemptDeployment')
-      .throws(new InvariantError(testInvariantErrorMessage))
-  })
-
-  afterEach(() => {
-    sinon.restore()
-  })
-
-  it('should rethrow the InvariantError thrown by attemptDeployment', async () => {
-    const taskArgs = {
-      deploymentConfig: getDummyDeploymentConfig(),
-      chainId: '1',
-    }
-
-    try {
-      await simulateDeploymentSubtask(taskArgs, hre)
-      // If the function doesn't throw, force the test to fail
-      expect.fail('Expected function to throw an InvariantError.')
-    } catch (error) {
-      expect(error).to.be.instanceOf(InvariantError)
-      expect(error.message).to.include(testInvariantErrorMessage)
-    }
-  })
-})
-
 describe('handleSimulationSuccess', () => {
-  let providerStub: sinon.SinonStubbedInstance<HardhatEthersProvider>
+  let providerStub: sinon.SinonStubbedInstance<InProcessEthersProvider>
 
   beforeEach(() => {
-    providerStub = sinon.createStubInstance(HardhatEthersProvider)
+    providerStub = sinon.createStubInstance(InProcessEthersProvider)
 
     providerStub.getCode.resolves('0x')
   })
@@ -238,7 +197,7 @@ describe('handleSimulationSuccess', () => {
   })
 })
 
-describe('createHardhatEthersProviderProxy', () => {
+describe('createInProcessEthersProviderProxy', () => {
   const asyncMethods = [
     { name: 'send', isAsync: true },
     { name: 'hardhat_reset', isAsync: true },
@@ -247,7 +206,7 @@ describe('createHardhatEthersProviderProxy', () => {
   ]
 
   let ethersProvider: any
-  let proxy: HardhatEthersProvider
+  let proxy: InProcessEthersProvider
   let timeSum: number = 0
   let sendStub: sinon.SinonStub
   let isPublicAsyncMethodStub: sinon.SinonStub
@@ -271,7 +230,7 @@ describe('createHardhatEthersProviderProxy', () => {
       send: sendStub,
     } as any
 
-    proxy = createHardhatEthersProviderProxy(ethersProvider)
+    proxy = createInProcessEthersProviderProxy(ethersProvider)
   })
 
   afterEach(() => {
