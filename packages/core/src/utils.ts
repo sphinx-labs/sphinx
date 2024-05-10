@@ -15,7 +15,6 @@ import {
   keccak256,
   formatUnits,
 } from 'ethers'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
 import {
   GnosisSafeArtifact,
@@ -55,7 +54,7 @@ import {
   HumanReadableAction,
 } from './actions/types'
 import { ExecutionMode, RELAYER_ROLE } from './constants'
-import { SphinxJsonRpcProvider } from './provider'
+import { InProcessEthersProvider, SphinxJsonRpcProvider } from './provider'
 import { BuildInfo } from './languages/solidity/types'
 import {
   COMPILER_CONFIG_VERSION,
@@ -161,7 +160,7 @@ export const getEIP1967ProxyAdminAddress = async (
  * @returns The object whose gas price settings will be overridden.
  */
 export const getGasPriceOverrides = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider,
   signer: ethers.Signer,
   executionMode: ExecutionMode,
   overridden: ethers.TransactionRequest = {}
@@ -305,7 +304,7 @@ export const isDataHexString = (variable: any): boolean => {
 }
 
 export const isLiveNetwork = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ): Promise<boolean> => {
   try {
     // This RPC method will throw an error on live networks, but won't throw an error on Hardhat or
@@ -325,7 +324,7 @@ export const isLiveNetwork = async (
  * the network is a live network.
  */
 export const isFork = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ): Promise<boolean> => {
   try {
     // The `hardhat_metadata` RPC method doesn't throw an error on Anvil because the `anvil_`
@@ -343,7 +342,7 @@ export const isFork = async (
 
 export const getImpersonatedSigner = async (
   address: string,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ): Promise<ethers.Signer> => {
   // This RPC method works for anvil too, since it's an alias for 'anvil_impersonateAccount'.
   await provider.send('hardhat_impersonateAccount', [address])
@@ -351,13 +350,14 @@ export const getImpersonatedSigner = async (
   if (provider instanceof SphinxJsonRpcProvider) {
     return new JsonRpcSigner(provider, address)
   } else {
-    return provider.getSigner(address)
+    const signer = await provider.getSigner(address)
+    return signer
   }
 }
 
 export const stopImpersonatingAccount = async (
   address: string,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ): Promise<void> => {
   // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
   // for 'anvil_stopImpersonatingAccount'.
@@ -843,7 +843,7 @@ export const toSphinxTransaction = (
  */
 export const getSphinxWalletsSortedByAddress = (
   numWallets: number | bigint,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ): Array<ethers.Wallet> => {
   const wallets: Array<ethers.Wallet> = []
   for (let i = 0; i < Number(numWallets); i++) {
@@ -875,7 +875,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   safeAddress: string,
   moduleAddress: string,
   executionMode: ExecutionMode,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ): Promise<void> => {
   // The caller of the transactions on the Gnosis Safe will be the Sphinx Module. This is necessary
   // to prevent the calls from reverting. An alternative approach is to call the Gnosis Safe from
@@ -956,7 +956,7 @@ export const removeSphinxWalletsFromGnosisSafeOwners = async (
   safeAddress: string,
   moduleAddress: string,
   executionMode: ExecutionMode,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ) => {
   // The caller of the transactions on the Gnosis Safe will be the Sphinx Module. This is necessary
   // to prevent the calls from reverting. An alternative approach is to call the Gnosis Safe from
@@ -1024,7 +1024,7 @@ export const removeGnosisSafeOwnerViaSphinxModule = async (
   safe: ethers.Contract,
   executionMode: ExecutionMode,
   moduleSigner: ethers.Signer,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ): Promise<void> => {
   const iface = new ethers.Interface(GnosisSafeArtifact.abi)
 
@@ -1178,7 +1178,7 @@ export const signMerkleRoot = async (
  */
 export const fundAccountMaxBalance = async (
   address: string,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ) => {
   await setBalance(address, ethers.toBeHex(ethers.MaxUint256), provider)
 }
@@ -1186,7 +1186,7 @@ export const fundAccountMaxBalance = async (
 export const setBalance = async (
   address: string,
   balance: string,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ) => {
   await provider.send('hardhat_setBalance', [
     address,
@@ -1210,7 +1210,7 @@ export const getMappingValueSlotKey = (
 
 export const setManagedServiceRelayer = async (
   address: string,
-  provider: HardhatEthersProvider | SphinxJsonRpcProvider
+  provider: InProcessEthersProvider | SphinxJsonRpcProvider
 ) => {
   const managedServiceAddress = getManagedServiceAddress()
 
