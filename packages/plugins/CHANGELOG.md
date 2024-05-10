@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.32.1
+
+### Patch Changes
+
+- e65fb7a: Improve reliability of internal hardhat simulation in monorepos
+- Updated dependencies [e65fb7a]
+  - @sphinx-labs/core@0.25.1
+
 ## 0.32.0
 
 ### Minor Changes
