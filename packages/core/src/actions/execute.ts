@@ -1,5 +1,4 @@
 import { Logger } from '@eth-optimism/common-ts'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {
   SphinxLeafWithProof,
   ManagedServiceABI,
@@ -26,7 +25,7 @@ import {
   MerkleRootStatus,
 } from './types'
 import { ExecutionMode } from '../constants'
-import { SphinxJsonRpcProvider } from '../provider'
+import { InProcessEthersProvider, SphinxJsonRpcProvider } from '../provider'
 import {
   addSphinxWalletsToGnosisSafeOwners,
   findLeafWithProof,
@@ -254,7 +253,7 @@ export type DeploymentContext = {
    *
    * Allows us to generate and supply the rpc provider in whatever way we would like.
    */
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 
   /**
    * An optional wallet.
@@ -1169,7 +1168,7 @@ export const fetchExecutionTransactionReceipts = async (
   receipts: ethers.TransactionReceipt[],
   moduleAddress: string,
   merkleRoot: string,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | InProcessEthersProvider
 ) => {
   const module = new ethers.Contract(moduleAddress, SphinxModuleABI, provider)
 
@@ -1308,7 +1307,6 @@ export const attemptDeployment = async (
       const signatures: string[] = signers
         .map((signer) => signer.signature)
         .filter((signature) => signature !== null) as any
-
       ;({ receipts, batches, finalStatus, failureAction } =
         await executeDeployment(
           targetNetworkNetworkConfig,
@@ -1325,6 +1323,7 @@ export const attemptDeployment = async (
           targetNetworkNetworkConfig,
           failureAction
         )
+
         return {
           receipts: deploymentTransactionReceipts.map(
             convertEthersTransactionReceipt
@@ -1338,7 +1337,6 @@ export const attemptDeployment = async (
       await deploymentContext.handleError(e, deployment)
       return
     }
-
     await deploymentContext.handleSuccess(
       deploymentContext,
       targetNetworkNetworkConfig
