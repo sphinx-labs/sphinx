@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.25.2
+
+### Patch Changes
+
+- fbf95a5: Rollback internal hardhat sim change
+
 ## 0.25.1
 
 ### Patch Changes
