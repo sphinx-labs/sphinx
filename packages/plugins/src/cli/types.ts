@@ -48,8 +48,7 @@ export interface ArtifactsCommandArgs {
 export type GetNetworkGasEstimate = (
   deploymentConfig: DeploymentConfig,
   chainId: string,
-  rpcUrl: string,
-  cachePath: string
+  rpcUrl: string
 ) => Promise<NetworkGasEstimate>
 
 export type BuildNetworkConfigArray = (

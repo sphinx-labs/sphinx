@@ -333,12 +333,7 @@ export const deploy = async (
     merkleTree
   )
 
-  await simulate(
-    deploymentConfig,
-    chainId.toString(),
-    forkUrl,
-    foundryToml.cachePath
-  )
+  await simulate(deploymentConfig, chainId.toString(), forkUrl)
 
   spinner.succeed(`Built deployment.`)
 
@@ -386,7 +381,7 @@ export const deploy = async (
       failureReason: HumanReadableAction
     ) => {
       throw new Error(
-        `The following action reverted during execution:\n${failureReason.reason}`
+        `The following action reverted during the execution:\n${failureReason.reason}`
       )
     },
     handleSuccess: async () => {

@@ -52,8 +52,7 @@
     "semver": "^7.3.8",
     "solidity-ast": "^0.4.45",
     "undici": "^5.21.1",
-    "yesno": "^0.4.0",
-    "debug": "^4.3.4"
+    "yesno": "^0.4.0"
   },
   "devDependencies": {
     "@types/sinon": "^17.0.2",
