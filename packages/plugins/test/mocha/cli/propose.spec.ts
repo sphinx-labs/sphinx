@@ -192,15 +192,6 @@ describe('Propose CLI command', () => {
     expect(
       (networkConfig.actionInputs[0] as Create2ActionInput).create2Address
     ).equals(expectedContractAddress)
-
-    await assertValidGasEstimates(
-      proposalRequest.gasEstimates,
-      networkConfigArray,
-      networks,
-      scriptPath,
-      targetContract,
-      context
-    )
   })
 
   it('Proposes without preview using --mainnets', async () => {
@@ -341,15 +332,6 @@ describe('Propose CLI command', () => {
     expect(
       (optimismConfig.actionInputs[0] as Create2ActionInput).create2Address
     ).equals(expectedContractAddressOptimism)
-
-    await assertValidGasEstimates(
-      proposalRequest.gasEstimates,
-      networkConfigArray,
-      networks,
-      scriptPath,
-      targetContract,
-      context
-    )
   })
 
   // We'll propose a script that deploys a contract near the contract size limit. We'll deploy it
@@ -457,16 +439,6 @@ describe('Propose CLI command', () => {
         (networkConfig.actionInputs[i] as Create2ActionInput).create2Address
       ).equals(expectedContractAddresses[i])
     }
-
-    await assertValidGasEstimates(
-      proposalRequest.gasEstimates,
-      networkConfigArray,
-      networks,
-      scriptPath,
-      undefined,
-      context,
-      sig
-    )
   })
 
   it('Dry runs for a Gnosis Safe and Sphinx Module that have already executed a deployment', async () => {
@@ -562,15 +534,6 @@ describe('Propose CLI command', () => {
     expect(
       (networkConfig.actionInputs[0] as Create2ActionInput).create2Address
     ).equals(expectedContractAddress)
-
-    await assertValidGasEstimates(
-      proposalRequest.gasEstimates,
-      networkConfigArray,
-      networks,
-      scriptPath,
-      targetContract,
-      context
-    )
   })
 
   // We exit early even if the Gnosis Safe and Sphinx Module haven't been deployed yet. In other
@@ -693,15 +656,6 @@ describe('Propose CLI command', () => {
     ).equals(expectedContractAddress)
     const optimismConfig = networkConfigArray[1]
     expect(optimismConfig.actionInputs.length).equals(0)
-
-    await assertValidGasEstimates(
-      proposalRequest.gasEstimates,
-      networkConfigArray,
-      networks,
-      scriptPath,
-      undefined,
-      context
-    )
   })
 
   // This test checks that the proposal simulation can fail after the transactions have been
@@ -876,8 +830,12 @@ describe('Propose CLI command', () => {
 /**
  * Validates the `gasEstimates` array in the ProposalRequest. This mainly checks that the
  * estimated gas is 30% greater than the actual gas used in the deployment.
+ *
+ * This function is currently not used because we are not able to run the internal simulation
+ * against local nodes due to a bug in hardhat. We would like to re-enable this check once that
+ * issue is resolved.
  */
-const assertValidGasEstimates = async (
+export const assertValidGasEstimates = async (
   networkGasEstimates: ProposalRequest['gasEstimates'],
   networkConfigArray: Array<NetworkConfig>,
   networks: Array<string>,

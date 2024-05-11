@@ -209,7 +209,7 @@ describe('Utils', async () => {
       // Fifth contract:
       expect(
         existsSync(
-          `${artifactFolder}/test/deeper/DuplicateContractName.sol/DuplicateContractName.json`
+          `${artifactFolder}/deep/deeper/DuplicateContractName.sol/DuplicateContractName.json`
         )
       ).equals(true)
 

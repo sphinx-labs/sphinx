@@ -404,12 +404,11 @@ describe('Deploy CLI command', () => {
       expect(existsSync(deploymentArtifactDirPath)).to.be.false
     })
 
-    // This test checks that Foundry's simulation can fail after the transactions have been
-    // collected, but before any transactions are broadcasted. This is worthwhile to test because
-    // the `SphinxModule` doesn't revert if a user's transactions causes the deployment to be marked
-    // as `FAILED`. If the Foundry plugin doesn't revert either, then Foundry will attempt to
-    // broadcast the deployment, which is not desirable.
-    it('Reverts if the deployment fails during the simulation', async () => {
+    // This test checks that an error is thrown if a transaction fails during execution. This is worthwhile
+    // to test because the `SphinxModule` doesn't revert if a user's transactions causes the deployment to be
+    // marked as `FAILED`. If the plugin doesn't revert either, then the user may believe their deployment
+    // completed successfully.
+    it('Errors if the deployment fails during execution', async () => {
       const scriptPath = 'contracts/test/script/RevertDuringSimulation.s.sol'
       const sphinxModuleAddress = await getSphinxModuleAddressFromScript(
         scriptPath,
@@ -445,7 +444,7 @@ describe('Deploy CLI command', () => {
         })
       } catch (e) {
         errorThrown = true
-        const expectedOutput = `The following action reverted during the simulation:\nRevertDuringSimulation<${expectedContractAddress}>.revertDuringSimulation()`
+        const expectedOutput = `The following action reverted during the execution:\nRevertDuringSimulation<${expectedContractAddress}>.revertDuringSimulation()`
         expect(e.message.includes(expectedOutput)).to.be.true
       }
 

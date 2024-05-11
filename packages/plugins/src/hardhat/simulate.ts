@@ -170,6 +170,14 @@ export const simulate = async (
       BigInt(networkConfig.blockNumber) - BigInt(getLargestReorg(chainId))
     envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = blockNumber.toString()
   } else {
+    /**
+     * We've disabled the internal simulation when the target network is a local node due to a bug
+     * in hardhat that causes the simulation to fail in some situations.
+     * See CHU-1072 for more information:
+     * https://linear.app/chugsplash/issue/CHU-1072/re-enable-simulation-step-against-local-nodes
+     */
+    return { transactions: [] }
+
     // The network is a non-forked local node (i.e. an Anvil or Hardhat node with a fresh state). We
     // do not hardcode the block number in the Hardhat config to avoid the following edge case:
     // 1. Say we create an Anvil node with Ethereum's chain ID: `anvil --chain-id 1`. The block
@@ -197,12 +205,12 @@ export const simulate = async (
     //    is meant to protect against chain reorgs on forks of live networks.
     // 3. The simulation fails because the transactions executed in step 1 don't exist on the
     //    Hardhat fork.
-    const blocksToFastForward = getLargestReorg(chainId)
-    const blocksHex = stripLeadingZero(ethers.toBeHex(blocksToFastForward))
-    await provider.send(
-      'hardhat_mine', // The `hardhat_mine` RPC method works on Anvil and Hardhat nodes.
-      [blocksHex]
-    )
+    // const blocksToFastForward = getLargestReorg(chainId)
+    // const blocksHex = stripLeadingZero(ethers.toBeHex(blocksToFastForward))
+    // await provider.send(
+    //   'hardhat_mine', // The `hardhat_mine` RPC method works on Anvil and Hardhat nodes.
+    //   [blocksHex]
+    // )
   }
 
   const hardhatRunnerPath = join(
