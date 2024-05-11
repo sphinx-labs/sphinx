@@ -269,6 +269,7 @@ export const simulateDeployment = async (
     },
     networks: {
       hardhat: {
+        hardfork: 'cancun',
         chainId: Number(chainId),
         forking: {
           url: forkUrl,
@@ -276,6 +277,13 @@ export const simulateDeployment = async (
             typeof blockNumber === 'string' ? Number(blockNumber) : undefined,
         },
         blockGasLimit: Number(blockGasLimit),
+        chains: {
+          [chainId]: {
+            hardforkHistory: {
+              cancun: 0,
+            },
+          },
+        },
         // We don't use Hardhat's genesis accounts, so we set this to an empty array. This eliminates
         // 20 RPC calls that Hardhat sends at the beginning of every simulation to get the nonce of
         // each genesis account. (There's one RPC call per genesis account). Hardhat needs to get
