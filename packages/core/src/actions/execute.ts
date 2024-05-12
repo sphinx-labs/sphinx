@@ -153,7 +153,7 @@ export type RemoveRoles = (
  * chance that a deployment will be proposed successfully and then later fail due to a bug that only exists
  * in the execution logic on the website.
  *
- * So to acheive those benefits, we aim to share as much logic between these different execution cases by
+ * So to achieve those benefits, we aim to share as much logic between these different execution cases by
  * limiting the amount of logic that is implemented within the `DeploymentContext` object. We should *only*
  * use the `DeploymentContext` object to store logic which absolutely cannot be used within all three flows.
  *
@@ -996,7 +996,7 @@ const executeDeployment = async (
      * just by looking at the on-chain state. Instead, we rely on the websites implementation
      * of `deploymentContext.executeTransaction` to be idempotent on a per deployment basis.
      * So that even if the deployment times out and `deploymentContext.executeTransaction` is
-     * called multiple times, it wont result in additional transfers because the website backend
+     * called multiple times, it won't result in additional transfers because the website backend
      * still only sends a single transaction.
      *
      * This issue could still potentially occur in the deploy CLI command if/when we implement
@@ -1217,7 +1217,7 @@ export const fetchExecutionTransactionReceipts = async (
  * and website backend. There is some logic in this function that may not be strictly necessary in all situations.
  *
  * We chose to reuse it in all situations because it is easier to maintain a single interface and because we want
- * to improve the chance that bugs will get caught during the initial proposal simulation step rather than occuring
+ * to improve the chance that bugs will get caught during the initial proposal simulation step rather than occurring
  * when a deployment is actually happening on the website.
  *
  * The allow for this function to be reused in all three situations this function accepts a `deploymentContext` object
@@ -1375,7 +1375,7 @@ export const attemptDeployment = async (
  * attemptDeployment is non-configurable and non-writable".
  *
  * Then, say we introduce this object and we update `myFunction` to contain
- *  `sphinxCoreExecute.attemptDeployment`. We can sucessfully create the mock by writing:
+ *  `sphinxCoreExecute.attemptDeployment`. We can successfully create the mock by writing:
  * ```
  * import { sphinxCoreExecute } from '@sphinx-labs/core'
  * sinon.stub(sphinxCoreExecute, 'attemptDeployment')

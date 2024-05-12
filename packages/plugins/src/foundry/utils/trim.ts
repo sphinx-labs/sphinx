@@ -18,7 +18,7 @@ export const trimObjectToType = <T>(obj: any, typeTemplate: T): T => {
   if (Array.isArray(typeTemplate)) {
     return obj
   } else if (typeof typeTemplate !== 'object') {
-    // If the template is a primative type, then we just return so the value is included in the result
+    // If the template is a primitive type, then we just return so the value is included in the result
     return obj
   } else if (!typeTemplate === null || !typeTemplate === undefined) {
     throw new Error('Cannot specify a typeTemplate that is null or undefined')
