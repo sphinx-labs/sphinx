@@ -223,10 +223,10 @@ export const attemptVerification = async (
   let guid: string
   /**
    * We wrap this in a try/catch because this call may throw an error if the contract was recently
-   * deployed and hasn't propogated to Etherscan's backend yet.
+   * deployed and hasn't propagated to Etherscan's backend yet.
    *
    * An error may also occur if the contract is already verified which can happen in two scenarios:
-   * - We're retrying verification and this contract was succesfully verified in a previous attempt.
+   * - We're retrying verification and this contract was successfully verified in a previous attempt.
    * - The contract was verified by some mechanism implemented by the Blockexplorer such as automatic
    * linking via source code matching.
    *

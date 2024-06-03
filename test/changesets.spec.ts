@@ -35,7 +35,7 @@ type Changesets = {
 }
 
 /**
- * We use the Changesets package to generate release versions which requires that we manaully determine when to do
+ * We use the Changesets package to generate release versions which requires that we manually determine when to do
  * releases and for which packages. There are some cases where we can accidentally do a release incorrectly that could
  * result in user either not getting changes that they should get based on the plugins package version they have
  * installed, or that in the worst case could break their installation.
