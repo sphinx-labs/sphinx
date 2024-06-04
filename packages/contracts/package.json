@@ -7,11 +7,6 @@
   "files": [
     "dist/*",
     "contracts/*",
-    "out/build-info/*.json",
-    "out/ManagedService.sol/*.json",
-    "out/SphinxModule.sol/*.json",
-    "out/SphinxModuleProxyFactory.sol/*.json",
-    "out/SphinxModuleProxyFactory.sol/*.json",
     "contract-artifacts/**/*.json"
   ],
   "scripts": {

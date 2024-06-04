@@ -1,15 +1,8 @@
 import { assert } from 'console'
 
-import { AbiCoder, Contract, ZeroHash, ethers } from 'ethers'
+import { Contract, ethers } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  DrippieArtifact,
-  ManagedServiceArtifact,
-  OWNER_MULTISIG_ADDRESS,
-  getCheckBalanceLowAddress,
-  getDrippieAddress,
-  getManagedServiceAddress,
-  getOwnerAddress,
   getSphinxConstants,
 } from '@sphinx-labs/contracts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
@@ -18,17 +11,10 @@ import ora from 'ora'
 import {
   isContractDeployed,
   getGasPriceOverrides,
-  isLiveNetwork,
-  getImpersonatedSigner,
   fundAccountMaxBalance,
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
-import { ExecutionMode, RELAYER_ROLE } from '../../constants'
-import {
-  fetchDripSizeForNetwork,
-  fetchDripVersionForNetwork,
-  fetchDecimalsForNetwork,
-} from '../../networks'
+import { ExecutionMode } from '../../constants'
 
 export const ensureSphinxAndGnosisSafeDeployed = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
@@ -119,154 +105,6 @@ export const checkSystemDeployed = async (
   return codes.every((code) => code !== '0x')
 }
 
-export const assignManagedServiceRoles = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  signer: ethers.Signer,
-  relayers: string[],
-  executionMode: ExecutionMode,
-  spinner?: ora.Ora
-) => {
-  // Next, we get the owner address, which differs depending on the situation:
-  // 1. If the owner is the multisig and we're deploying on a test node then we can use an impersonated signer.
-  // 2. If the owner is the multisig and we're deploying on a live network then we have to use the gnosis safe ethers adapter (which we have not implemented yet).
-  // 3. We also allow the user to specify a different owner via process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY. This is useful for testing on live networks without using the multisig.
-  //    In this case, we need to create a signer using the SPHINX_INTERNAL__OWNER_PRIVATE_KEY and use that.
-  let owner: ethers.Signer
-
-  // If deploying on a live network and the target owner is the multisig, then throw an error because
-  // we have not setup the safe ethers adapter yet.
-  const isLiveNetwork_ = await isLiveNetwork(provider)
-  if (isLiveNetwork_ && getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
-    if (!process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY) {
-      throw new Error('Must define SPHINX_INTERNAL__OWNER_PRIVATE_KEY')
-    }
-
-    owner = new ethers.Wallet(
-      process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
-      provider
-    )
-  } else {
-    // if target owner is multisig, then use an impersonated multisig signer
-    if (getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
-      owner = await getImpersonatedSigner(OWNER_MULTISIG_ADDRESS, provider)
-    } else {
-      // if target owner is not multisig, then use the owner signer
-      // SPHINX_INTERNAL__OWNER_PRIVATE_KEY will always be defined if the OWNER_ADDRESS is not the OWNER_MULTISIG_ADDRESS
-      owner = new ethers.Wallet(
-        process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
-        provider
-      )
-    }
-
-    if (!isLiveNetwork_) {
-      // Fund the signer
-      await (
-        await signer.sendTransaction({
-          to: await owner.getAddress(),
-          value: ethers.parseEther('1'),
-        })
-      ).wait()
-    }
-  }
-
-  const ManagedService = new ethers.Contract(
-    getManagedServiceAddress(),
-    ManagedServiceArtifact.abi,
-    owner
-  )
-
-  spinner?.start('Assigning relayers roles...')
-  for (const relayer of relayers) {
-    if ((await ManagedService.hasRole(RELAYER_ROLE, relayer)) === false) {
-      await (
-        await ManagedService.grantRole(
-          RELAYER_ROLE,
-          relayer,
-          await getGasPriceOverrides(provider, owner, executionMode)
-        )
-      ).wait()
-    }
-  }
-  spinner?.succeed('Finished assigning relayers roles')
-
-  const Drippie = new ethers.Contract(
-    getDrippieAddress(),
-    DrippieArtifact.abi,
-    owner
-  )
-
-  spinner?.start('Creating relayer drips...')
-  for (const relayer of relayers) {
-    const chainId = (await provider.getNetwork()).chainId
-
-    const currentDripVersion = fetchDripVersionForNetwork(chainId)
-    const baseDripName = `sphinx_fund_${relayer}`
-    const dripName =
-      baseDripName + (currentDripVersion > 0 ? `_${currentDripVersion}` : '')
-
-    const reentrant = false
-    const interval = 1
-    const dripcheck = getCheckBalanceLowAddress()
-    const checkparams = AbiCoder.defaultAbiCoder().encode(
-      ['address', 'uint256'],
-      [
-        relayer,
-        ethers.parseEther(fetchDripSizeForNetwork(chainId)) * BigInt(10),
-      ]
-    )
-    const actions = [
-      {
-        target: relayer,
-        data: ZeroHash,
-        value: ethers.parseUnits(
-          fetchDripSizeForNetwork(chainId),
-          fetchDecimalsForNetwork(chainId)
-        ),
-      },
-    ]
-
-    const [status] = await Drippie.drips(dripName)
-    if (status === BigInt(2)) {
-      spinner?.info(`Drip ${dripName} already exists`)
-    } else if (status === BigInt(0)) {
-      spinner?.start(`Creating drip ${dripName}...`)
-      await (
-        await Drippie.create(
-          dripName,
-          {
-            reentrant,
-            interval,
-            dripcheck,
-            checkparams,
-            actions,
-          },
-          await getGasPriceOverrides(provider, owner, executionMode)
-        )
-      ).wait()
-      await (
-        await Drippie.status(
-          dripName,
-          2,
-          await getGasPriceOverrides(provider, owner, executionMode)
-        )
-      ).wait()
-    } else if (status === BigInt(1)) {
-      spinner?.start(`Setting status for drip ${dripName}...`)
-      await (
-        await Drippie.status(
-          dripName,
-          2,
-          await getGasPriceOverrides(provider, owner, executionMode)
-        )
-      ).wait()
-      spinner?.succeed(`Finished setting status for drip ${dripName}`)
-    } else {
-      throw new Error(`Drip ${dripName} has archived status`)
-    }
-  }
-  spinner?.succeed('Finished creating relayer drips')
-}
-
 export const deploySphinxSystem = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
@@ -306,16 +144,6 @@ export const deploySphinxSystem = async (
   }
 
   spinner?.succeed(`Finished deploying Sphinx contracts`)
-
-  if (includeManagedServiceRoles) {
-    await assignManagedServiceRoles(
-      provider,
-      signer,
-      relayers,
-      executionMode,
-      spinner
-    )
-  }
 }
 
 export const getDeterministicFactoryAddress = async (

@@ -5,17 +5,16 @@ import {
   CompatibilityFallbackHandlerArtifact,
   CreateCallArtifact,
   DefaultCallbackHandlerArtifact,
-  DrippieArtifact,
   GnosisSafeArtifact,
   GnosisSafeL2Artifact,
   GnosisSafeProxyFactoryArtifact,
-  ManagedServiceArtifact,
   MultiSendArtifact,
   MultiSendCallOnlyArtifact,
   SimulateTxAccessorArtifact,
   SphinxModuleProxyFactoryArtifact,
   SignMessageLibArtifact,
   SphinxModuleArtifact,
+  PermissionlessRelayArtifact,
 } from './ifaces'
 import {
   ContractArtifact,
@@ -27,19 +26,17 @@ import {
   getCompatibilityFallbackHandlerAddress,
   getCreateCallAddress,
   getDefaultCallbackHandlerAddress,
-  getDrippieAddress,
   getGnosisSafeSingletonAddress,
   getGnosisSafeL2Address,
   getGnosisSafeProxyFactoryAddress,
-  getManagedServiceAddress,
   getMultiSendAddress,
   getMultiSendCallOnlyAddress,
   getSignMessageLibAddress,
   getSimulateTxAccessorAddress,
   getSphinxModuleImplAddress,
   getSphinxModuleProxyFactoryAddress,
+  getPermissionlessRelayAddress,
 } from './addresses'
-import { getOwnerAddress } from './constants'
 import { remove0x } from './utils'
 
 export enum SystemContractType {
@@ -71,9 +68,9 @@ export const additionalSystemContractsToVerify: Array<SphinxSystemContract> = [
 export const getSphinxConstants = (): Array<SphinxSystemContract> => {
   const contractInfo = [
     {
-      artifact: ManagedServiceArtifact,
-      expectedAddress: getManagedServiceAddress(),
-      constructorArgs: [getOwnerAddress()],
+      artifact: PermissionlessRelayArtifact,
+      expectedAddress: getPermissionlessRelayAddress(),
+      constructorArgs: [],
       type: SystemContractType.SPHINX,
     },
     {
@@ -141,12 +138,6 @@ export const getSphinxConstants = (): Array<SphinxSystemContract> => {
       expectedAddress: getGnosisSafeSingletonAddress(),
       constructorArgs: [],
       type: SystemContractType.GNOSIS_SAFE,
-    },
-    {
-      artifact: DrippieArtifact,
-      expectedAddress: getDrippieAddress(),
-      constructorArgs: [getOwnerAddress()],
-      type: SystemContractType.OPTIMISM,
     },
     {
       artifact: CheckBalanceLowArtifact,

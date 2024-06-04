@@ -933,7 +933,6 @@ describe('Utils', async () => {
     const unsupportedNetworkOne = 'unsupported1'
     const unsupportedNetworkTwo = 'unsupported2'
 
-    let isLiveNetwork: sinon.SinonSpy
     let rpcEndpoints: FoundryToml['rpcEndpoints']
     let getNetworkStub: sinon.SinonStub
 
@@ -948,7 +947,6 @@ describe('Utils', async () => {
 
       getNetworkStub = sinon.stub()
 
-      isLiveNetwork = sinon.fake.resolves(true)
       sinon
         .stub(SphinxJsonRpcProvider.prototype, 'getNetwork')
         .callsFake(getNetworkStub)
@@ -960,7 +958,7 @@ describe('Utils', async () => {
 
     it('throws an error if no CLI networks are provided', async () => {
       await expect(
-        validateProposalNetworks([], [], [], rpcEndpoints, isLiveNetwork)
+        validateProposalNetworks([], [], [], rpcEndpoints)
       ).to.be.rejectedWith(
         `Expected at least one network, but none were supplied.`
       )
@@ -969,26 +967,14 @@ describe('Utils', async () => {
     it('throws an error for missing RPC endpoints', async () => {
       const unknownNetworks = ['unknown1', 'unknown2']
       await expect(
-        validateProposalNetworks(
-          unknownNetworks,
-          [],
-          [],
-          rpcEndpoints,
-          isLiveNetwork
-        )
+        validateProposalNetworks(unknownNetworks, [], [], rpcEndpoints)
       ).to.be.rejectedWith(getMissingEndpointErrorMessage(unknownNetworks))
     })
 
     it('throws an error for failed requests to RPC endpoints', async () => {
       getNetworkStub.rejects(new Error('Request failed'))
       await expect(
-        validateProposalNetworks(
-          validNetworks,
-          [],
-          [],
-          rpcEndpoints,
-          isLiveNetwork
-        )
+        validateProposalNetworks(validNetworks, [], [], rpcEndpoints)
       ).to.be.rejectedWith(getFailedRequestErrorMessage(validNetworks))
     })
 
@@ -1012,8 +998,7 @@ describe('Utils', async () => {
           [unsupportedNetworkOne, unsupportedNetworkTwo],
           [],
           [],
-          rpcEndpoints,
-          isLiveNetwork
+          rpcEndpoints
         )
       ).to.be.rejectedWith(
         getUnsupportedNetworkErrorMessage(unsupportedNetworks)
@@ -1024,13 +1009,7 @@ describe('Utils', async () => {
       getNetworkStub.resolves({ chainId: BigInt(1) })
       isLiveNetwork = sinon.fake.resolves(false)
       await expect(
-        validateProposalNetworks(
-          validNetworks,
-          [],
-          [],
-          rpcEndpoints,
-          isLiveNetwork
-        )
+        validateProposalNetworks(validNetworks, [], [], rpcEndpoints)
       ).to.be.rejectedWith(getLocalNetworkErrorMessage(validNetworks))
     })
 
@@ -1046,13 +1025,7 @@ describe('Utils', async () => {
       getNetworkStub.onThirdCall().resolves({ chainId: BigInt(11155111) }) // Test network (Sepolia)
 
       await expect(
-        validateProposalNetworks(
-          validNetworks,
-          [],
-          [],
-          rpcEndpoints,
-          isLiveNetwork
-        )
+        validateProposalNetworks(validNetworks, [], [], rpcEndpoints)
       ).to.be.rejectedWith(getMixedNetworkTypeErrorMessage(mixedNetworks))
     })
 
@@ -1064,8 +1037,7 @@ describe('Utils', async () => {
           ['mainnets'],
           [],
           [validTestnetOne],
-          rpcEndpoints,
-          isLiveNetwork
+          rpcEndpoints
         )
       ).to.be.rejectedWith(SphinxConfigMainnetsContainsTestnetsErrorMessage)
     })
@@ -1078,8 +1050,7 @@ describe('Utils', async () => {
           ['testnets'],
           [validMainnetOne, validMainnetTwo],
           [],
-          rpcEndpoints,
-          isLiveNetwork
+          rpcEndpoints
         )
       ).to.be.rejectedWith(SphinxConfigTestnetsContainsMainnetsErrorMessage)
     })
@@ -1092,8 +1063,7 @@ describe('Utils', async () => {
         [validMainnetOne, validMainnetTwo],
         [],
         [],
-        rpcEndpoints,
-        isLiveNetwork
+        rpcEndpoints
       )
       expect(result.rpcUrls).to.deep.equals([
         rpcEndpoints[validMainnetOne],
@@ -1110,8 +1080,7 @@ describe('Utils', async () => {
         ['mainnets'],
         [],
         [validMainnetOne, validMainnetTwo],
-        rpcEndpoints,
-        isLiveNetwork
+        rpcEndpoints
       )
       expect(result.rpcUrls).to.deep.equals([
         rpcEndpoints[validMainnetOne],
@@ -1127,8 +1096,7 @@ describe('Utils', async () => {
         ['testnets'],
         [validTestnetOne],
         [],
-        rpcEndpoints,
-        isLiveNetwork
+        rpcEndpoints
       )
       expect(result.rpcUrls).to.deep.equals([rpcEndpoints[validTestnetOne]])
       expect(result.isTestnet).to.be.true

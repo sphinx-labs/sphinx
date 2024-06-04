@@ -2,7 +2,6 @@ import { ethers } from 'ethers'
 
 import { remove0x } from '../src/utils'
 import {
-  getManagedServiceAddress,
   getSphinxModuleProxyFactoryAddress,
   getGnosisSafeProxyFactoryAddress,
   getGnosisSafeSingletonAddress,
@@ -10,6 +9,7 @@ import {
   getCompatibilityFallbackHandlerAddress,
   getMultiSendAddress,
   getSphinxModuleImplAddress,
+  getPermissionlessRelayAddress,
 } from '../src/addresses'
 import {
   SPHINX_NETWORKS,
@@ -45,9 +45,9 @@ const writeConstants = async () => {
       type: 'address',
       value: getSphinxModuleProxyFactoryAddress(),
     },
-    managedServiceAddress: {
+    permissionlessRelayAddress: {
       type: 'address',
-      value: getManagedServiceAddress(),
+      value: getPermissionlessRelayAddress(),
     },
     safeFactoryAddress: {
       type: 'address',
