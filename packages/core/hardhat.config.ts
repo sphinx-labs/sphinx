@@ -9,12 +9,16 @@ import {
   NetworksUserConfig,
 } from 'hardhat/types'
 import { Logger } from '@eth-optimism/common-ts'
-import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
-import { Wallet } from 'ethers'
+import {
+  DrippieArtifact,
+  SPHINX_NETWORKS,
+  getDrippieAddress,
+} from '@sphinx-labs/contracts'
+import { Contract, Wallet } from 'ethers'
 import ora from 'ora'
 
 import { SphinxJsonRpcProvider } from './src/provider'
-import { SphinxSystemConfig, deploySphinxSystem } from './src/languages'
+import { deploySphinxSystem } from './src/languages'
 import { verifySphinxSystem } from './src/etherscan'
 import { ExecutionMode } from './src/constants'
 import { isVerificationSupportedForNetwork } from './src/networks'
@@ -59,51 +63,70 @@ const config: HardhatUserConfig = {
   networks: fetchSupportedNetworkHardhatConfig(),
 }
 
+task('withdraw-drippie')
+  .setDescription('Withdraws the maximum amount from drippie')
+  .setAction(async (_, hre: HardhatRuntimeEnvironment) => {
+    // Throw an error if we're on the Hardhat network. This ensures that the `url` field is
+    // defined for this network.
+    if (!('url' in hre.network.config)) {
+      throw new Error(
+        `Cannot deploy Sphinx on the Hardhat network using this task.`
+      )
+    }
+    const provider = new SphinxJsonRpcProvider(hre.network.config.url)
+    const signer = new Wallet(process.env.PRIVATE_KEY!).connect(provider)
+
+    const drippieContract = new Contract(
+      getDrippieAddress(),
+      DrippieArtifact.abi,
+      signer
+    )
+
+    const spinner = ora()
+    spinner.start('sending transaction...')
+
+    const tx = await drippieContract.withdrawETH(
+      process.env.DRIPPIE_WITHDRAW_TO
+    )
+    await tx.wait()
+
+    spinner.succeed('withdrawal complete')
+  })
+
 task('deploy-system')
   .setDescription('Deploys the Sphinx contracts to the specified network')
-  .addParam('systemConfig', 'Path to a Sphinx system config file')
-  .setAction(
-    async (
-      args: {
-        systemConfig: string
-      },
-      hre: HardhatRuntimeEnvironment
-    ) => {
-      // Throw an error if we're on the Hardhat network. This ensures that the `url` field is
-      // defined for this network.
-      if (!('url' in hre.network.config)) {
-        throw new Error(
-          `Cannot deploy Sphinx on the Hardhat network using this task.`
-        )
-      }
-      const provider = new SphinxJsonRpcProvider(hre.network.config.url)
-      const signer = new Wallet(process.env.PRIVATE_KEY!).connect(provider)
-
-      const systemConfig: SphinxSystemConfig =
-        require(args.systemConfig).default
-
-      const spinner = ora()
-      const logger = new Logger({
-        name: 'Logger',
-      })
-
-      await deploySphinxSystem(
-        provider,
-        signer,
-        systemConfig.relayers,
-        ExecutionMode.LiveNetworkCLI,
-        true,
-        spinner
+  .setAction(async (_, hre: HardhatRuntimeEnvironment) => {
+    // Throw an error if we're on the Hardhat network. This ensures that the `url` field is
+    // defined for this network.
+    if (!('url' in hre.network.config)) {
+      throw new Error(
+        `Cannot deploy Sphinx on the Hardhat network using this task.`
       )
-
-      if (
-        isVerificationSupportedForNetwork((await provider.getNetwork()).chainId)
-      ) {
-        await verifySphinxSystem(provider, logger)
-      } else {
-        spinner.info('Verification unsupported on this network')
-      }
     }
-  )
+    const provider = new SphinxJsonRpcProvider(hre.network.config.url)
+    const signer = new Wallet(process.env.PRIVATE_KEY!).connect(provider)
+
+    const spinner = ora()
+    const logger = new Logger({
+      name: 'Logger',
+    })
+
+    await deploySphinxSystem(
+      provider,
+      signer,
+      [],
+      ExecutionMode.LiveNetworkCLI,
+      true,
+      spinner
+    )
+
+    if (
+      isVerificationSupportedForNetwork((await provider.getNetwork()).chainId)
+    ) {
+      await verifySphinxSystem(provider, logger)
+    } else {
+      spinner.info('Verification unsupported on this network')
+    }
+  })
 
 export default config

@@ -34,7 +34,6 @@ import {
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as FallbackArtifact from '../../../out/artifacts/Fallback.sol/Fallback.json'
-import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.sol/RevertDuringSimulation.json'
 import * as ConstructorDeploysContractParentArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/ConstructorDeploysContract.json'
 import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/DeployedInConstructor.json'
 import { deploy } from '../../../src/cli/deploy'
@@ -42,7 +41,6 @@ import {
   checkArtifacts,
   killAnvilNodes,
   startAnvilNodes,
-  getSphinxModuleAddressFromScript,
   getEmptyDeploymentArtifacts,
   makeActionInputsWithoutGas,
   encodeFunctionCalldata,
@@ -402,54 +400,6 @@ describe('Deploy CLI command', () => {
 
       // Check that the deployment artifacts have't been created.
       expect(existsSync(deploymentArtifactDirPath)).to.be.false
-    })
-
-    // This test checks that Foundry's simulation can fail after the transactions have been
-    // collected, but before any transactions are broadcasted. This is worthwhile to test because
-    // the `SphinxModule` doesn't revert if a user's transactions causes the deployment to be marked
-    // as `FAILED`. If the Foundry plugin doesn't revert either, then Foundry will attempt to
-    // broadcast the deployment, which is not desirable.
-    it('Reverts if the deployment fails during the simulation', async () => {
-      const scriptPath = 'contracts/test/script/RevertDuringSimulation.s.sol'
-      const sphinxModuleAddress = await getSphinxModuleAddressFromScript(
-        scriptPath,
-        sepoliaRpcUrl,
-        'RevertDuringSimulation_Script'
-      )
-
-      const expectedContractAddress = ethers.getCreate2Address(
-        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-        ethers.ZeroHash,
-        ethers.keccak256(
-          ethers.concat([
-            RevertDuringSimulation.bytecode.object,
-            coder.encode(['address'], [sphinxModuleAddress]),
-          ])
-        )
-      )
-
-      const { context } = makeMockSphinxContextForIntegrationTests([
-        `contracts/test/RevertDuringSimulation.sol:RevertDuringSimulation`,
-      ])
-
-      let errorThrown = false
-      try {
-        await deploy({
-          scriptPath,
-          network: 'sepolia',
-          skipPreview: false,
-          silent: true,
-          sphinxContext: context,
-          verify: false,
-          targetContract: 'RevertDuringSimulation_Script',
-        })
-      } catch (e) {
-        errorThrown = true
-        const expectedOutput = `The following action reverted during the simulation:\nRevertDuringSimulation<${expectedContractAddress}>.revertDuringSimulation()`
-        expect(e.message.includes(expectedOutput)).to.be.true
-      }
-
-      expect(errorThrown).to.be.true
     })
   })
 })

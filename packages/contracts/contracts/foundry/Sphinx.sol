@@ -136,7 +136,7 @@ abstract contract Sphinx {
 
         FoundryDeploymentInfo memory deploymentInfo = sphinxCollect(
             ExecutionMode.Platform,
-            constants.managedServiceAddress(),
+            constants.permissionlessRelayAddress(),
             _scriptFunctionCalldata,
             _callDepth
         );
@@ -163,7 +163,7 @@ abstract contract Sphinx {
             // Set the `ManagedService` contract as the deployer. Although this isn't strictly
             // necessary, it allows us to reuse the DevOps Platform logic for local network
             // broadcasts.
-            deployer = constants.managedServiceAddress();
+            deployer = constants.permissionlessRelayAddress();
         } else {
             revert("Incorrect execution type.");
         }

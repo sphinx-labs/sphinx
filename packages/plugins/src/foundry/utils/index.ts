@@ -15,13 +15,11 @@ import { execSync, spawnSync } from 'child_process'
 import {
   BuildInfo,
   CompilerOutputContracts,
-  SphinxTransactionResponse,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   decodeDeterministicDeploymentProxyData,
   exceedsContractSizeLimit,
   execAsync,
-  fetchNetworkConfigFromDeploymentConfig,
   formatSolcLongVersion,
   getBytesLength,
   hasParentheses,
@@ -35,7 +33,6 @@ import {
 } from '@sphinx-labs/core/dist/utils'
 import {
   ActionInput,
-  DeploymentConfig,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
@@ -55,11 +52,8 @@ import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import {
   ExecutionMode,
-  NetworkGasEstimate,
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
-  EstimateGasTransactionData,
-  TransactionEstimatedGas,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
@@ -85,18 +79,15 @@ import {
   FoundrySingleChainDryRun,
   FoundryToml,
 } from '../types'
-import { SimulationTransactions, simulate } from '../../hardhat/simulate'
-import { AssertNoLinkedLibraries, GetNetworkGasEstimate } from '../../cli/types'
+import { AssertNoLinkedLibraries } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
-import { SphinxContext } from '../../cli/context'
 import {
   InvalidFirstSigArgumentErrorMessage,
   SigCalledWithNoArgsErrorMessage,
   SphinxConfigMainnetsContainsTestnetsErrorMessage,
   SphinxConfigTestnetsContainsMainnetsErrorMessage,
   getFailedRequestErrorMessage,
-  getLocalNetworkErrorMessage,
   getMissingEndpointErrorMessage,
   getMixedNetworkTypeErrorMessage,
   getUnsupportedNetworkErrorMessage,
@@ -1076,102 +1067,6 @@ export const convertLibraryFormat = (
   })
 }
 
-const toSphinxTransactionEstimatedGas = (
-  response: SphinxTransactionResponse
-): EstimateGasTransactionData => {
-  return {
-    to: response.to,
-    from: response.from,
-    data: response.data,
-    gasLimit: response.gasLimit.toString(),
-    value: response.value.toString(),
-    chainId: response.chainId.toString(),
-  }
-}
-
-/**
- * Estimates the gas used by a deployment on a single network. Includes a buffer of 30% to account
- * for variations between the local simulation and the production environment. Also adjusts the
- * minimum gas limit on networks like Arbitrum to include the L1 gas fee, which isn't captured on
- * forks.
- */
-export const getEstimatedGas = async (
-  transactions: SimulationTransactions,
-  provider: SphinxJsonRpcProvider
-): Promise<{
-  estimatedGas: string
-  transactionsWithGasEstimates: Array<TransactionEstimatedGas>
-}> => {
-  // Estimate the minimum gas limit. On Ethereum, this will be 21k. (Technically, since
-  // `eth_estimateGas` generally overestimates the gas used, it will be slightly greater than 21k.
-  // It was 21001 during development). On Arbitrum and perhaps other L2s, the minimum gas limit will
-  // be closer to one million. This is because each transaction includes the L1 gas used. The local
-  // simulation that produced the transaction receipts doesn't capture this difference. We account
-  // for this difference by adding `estimatedMinGasLimit - 21_000` to each receipt. This provides a
-  // more accurate estimate on networks like Arbitrum.
-  const estimatedMinGasLimit = await provider.estimateGas({
-    to: ethers.ZeroAddress,
-    data: '0x',
-  })
-  const adjustedGasLimit = Number(estimatedMinGasLimit) - 21_000
-
-  const transactionsWithGasEstimates = transactions
-    .map((transaction) => {
-      return {
-        transaction: toSphinxTransactionEstimatedGas(transaction.response),
-        estimatedGas: Math.round(Number(transaction.receipt.gasUsed) * 1.3),
-      }
-    })
-    .map((transactionWithEstimatedGas) => {
-      const gasWithBuffer = transactionWithEstimatedGas.estimatedGas
-      // Add the adjusted gas limit amount. We add this after multiplying by the 1.3x buffer because
-      // the estimated minimum gas limit already includes a ~1.35x buffer due to the fact that the
-      // `eth_estimateGas` RPC method overestimates the gas. ref:
-      // https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_estimategas
-      const totalGas = gasWithBuffer + adjustedGasLimit
-      // Check that the total gas isn't negative out of an abundance of caution.
-      if (totalGas < 0) {
-        throw new Error('Gas used is less than 0. Should never happen.')
-      }
-      return {
-        transaction: transactionWithEstimatedGas.transaction,
-        estimatedGas: totalGas.toString(),
-      }
-    })
-
-  const estimatedGas = transactionsWithGasEstimates
-    .map((receiptWithEstimatedGas) => receiptWithEstimatedGas.estimatedGas)
-    .map(Number)
-    .reduce((a, b) => a + b, 0)
-
-  return {
-    estimatedGas: estimatedGas.toString(),
-    transactionsWithGasEstimates,
-  }
-}
-
-export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
-  deploymentConfig: DeploymentConfig,
-  chainId: string,
-  rpcUrl: string
-): Promise<NetworkGasEstimate> => {
-  const { transactions } = await simulate(deploymentConfig, chainId, rpcUrl)
-
-  const provider = new SphinxJsonRpcProvider(rpcUrl)
-  const { estimatedGas } = await getEstimatedGas(transactions, provider)
-
-  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
-    BigInt(chainId),
-    deploymentConfig
-  )
-
-  return {
-    chainId: Number(chainId),
-    estimatedGas,
-    fundsRequested: networkConfig.safeFundingRequest?.fundsRequested ?? '0',
-  }
-}
-
 /**
  * Recursively replaces environment variable placeholders in the input with their actual values.
  * This function does not mutate the original object.
@@ -1600,8 +1495,7 @@ export const validateProposalNetworks = async (
   cliNetworks: Array<string>,
   configTestnets: Array<string>,
   configMainnets: Array<string>,
-  rpcEndpoints: FoundryToml['rpcEndpoints'],
-  isLiveNetwork: SphinxContext['isLiveNetwork']
+  rpcEndpoints: FoundryToml['rpcEndpoints']
 ): Promise<{ rpcUrls: Array<string>; isTestnet: boolean }> => {
   if (cliNetworks.length === 0) {
     throw new Error(`Expected at least one network, but none were supplied.`)
@@ -1655,12 +1549,6 @@ export const validateProposalNetworks = async (
       }
     }
 
-    if (!(await isLiveNetwork(provider))) {
-      if (process.env.SPHINX_INTERNAL__ALLOW_LOCAL_NODES !== 'true') {
-        return { type: 'localNetwork', network }
-      }
-    }
-
     return {
       type: 'valid',
       rpcUrl,
@@ -1689,6 +1577,7 @@ export const validateProposalNetworks = async (
     if (value.type === 'missingEndpoint') {
       missingEndpoint.push(value.network)
     } else if (value.type === 'failedRequest') {
+      console.log(value.rpcUrl)
       failedRequest.push(value.network)
     } else if (value.type === 'unsupported') {
       // Narrow the TypeScript type.
@@ -1724,12 +1613,6 @@ export const validateProposalNetworks = async (
 
   if (unsupported.length > 0) {
     throw new Error(getUnsupportedNetworkErrorMessage(unsupported))
-  }
-
-  if (localNetwork.length > 0) {
-    if (process.env.SPHINX_INTERNAL__ALLOW_LOCAL_NODES !== 'true') {
-      throw new Error(getLocalNetworkErrorMessage(localNetwork))
-    }
   }
 
   // Check if the array contains a mix of test networks and production networks. We check this after

@@ -49,7 +49,6 @@ import {
   getSphinxModuleProxyFactoryAddress,
   Operation,
   SphinxMerkleTree,
-  getManagedServiceAddress,
   makeSphinxMerkleTree,
   parseFoundryContractArtifact,
   ContractArtifact,
@@ -62,6 +61,7 @@ import {
   getCreateCallAddress,
   getGnosisSafeProxyAddress,
   getGnosisSafeInitializerData,
+  getPermissionlessRelayAddress,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 
@@ -237,7 +237,7 @@ export const makeDeployment = async (
     }
     executorAddress = owners[0].address
   } else {
-    executorAddress = getManagedServiceAddress()
+    executorAddress = getPermissionlessRelayAddress()
   }
 
   const ownerAddresses = owners.map((owner) => owner.address)
