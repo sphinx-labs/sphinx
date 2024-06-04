@@ -45,12 +45,6 @@ export interface ArtifactsCommandArgs {
   silent: boolean
 }
 
-export type GetNetworkGasEstimate = (
-  deploymentConfig: DeploymentConfig,
-  chainId: string,
-  rpcUrl: string
-) => Promise<NetworkGasEstimate>
-
 export type BuildNetworkConfigArray = (
   scriptPath: string,
   scriptFunctionCalldata: string,

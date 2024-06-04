@@ -27,16 +27,6 @@ export const makeMockSphinxContext = (
     .stub(sphinxContext, 'isLiveNetwork')
     .returns(Promise.resolve(true))
 
-  const getNetworkGasEstimate = sinon
-    .stub(sphinxContext, 'getNetworkGasEstimate')
-    .returns(
-      Promise.resolve({
-        chainId: 0,
-        estimatedGas: '0',
-        fundsRequested: '0',
-        transactions: [],
-      })
-    )
   const relayProposal = sinon
     .stub(sphinxContext, 'relayProposal')
     .returns(Promise.resolve())
@@ -97,7 +87,6 @@ export const makeMockSphinxContext = (
     propose,
     deploy,
     buildNetworkConfigArray,
-    getNetworkGasEstimate,
     storeDeploymentConfig,
     relayProposal,
     prompt,

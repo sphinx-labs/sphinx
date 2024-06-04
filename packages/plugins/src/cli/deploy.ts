@@ -56,7 +56,6 @@ import {
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
 import { decodeDeploymentInfo, makeNetworkConfig } from '../foundry/decode'
-import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
 
 export interface DeployArgs {
@@ -332,8 +331,6 @@ export const deploy = async (
     buildInfos,
     merkleTree
   )
-
-  await simulate(deploymentConfig, chainId.toString(), forkUrl)
 
   spinner.succeed(`Built deployment.`)
 

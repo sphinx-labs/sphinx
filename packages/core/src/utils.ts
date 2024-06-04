@@ -24,8 +24,6 @@ import {
   SphinxTransaction,
   SphinxLeafWithProof,
   SphinxLeafType,
-  getManagedServiceAddress,
-  ManagedServiceArtifact,
   Operation,
   SolidityStorageLayout,
   SPHINX_LOCAL_NETWORKS,
@@ -54,7 +52,7 @@ import {
   MerkleRootStatus,
   HumanReadableAction,
 } from './actions/types'
-import { ExecutionMode, RELAYER_ROLE } from './constants'
+import { ExecutionMode } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
 import { BuildInfo } from './languages/solidity/types'
 import {
@@ -1206,32 +1204,6 @@ export const getMappingValueSlotKey = (
   return ethers.keccak256(
     ethers.solidityPacked(['bytes32', 'bytes32'], [key, padded])
   )
-}
-
-export const setManagedServiceRelayer = async (
-  address: string,
-  provider: HardhatEthersProvider | SphinxJsonRpcProvider
-) => {
-  const managedServiceAddress = getManagedServiceAddress()
-
-  const accessControlRoleSlotKey = findStorageSlotKey(
-    ManagedServiceArtifact.storageLayout,
-    '_roles'
-  )
-  const roleSlotKey = getMappingValueSlotKey(
-    accessControlRoleSlotKey,
-    RELAYER_ROLE
-  )
-  const memberSlotKey = getMappingValueSlotKey(
-    roleSlotKey,
-    ethers.zeroPadValue(ethers.toBeHex(address), 32)
-  )
-
-  await provider.send('hardhat_setStorageAt', [
-    managedServiceAddress,
-    memberSlotKey,
-    '0x0000000000000000000000000000000000000000000000000000000000000001',
-  ])
 }
 
 export const getReadableActions = (

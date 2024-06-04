@@ -2,8 +2,8 @@ import { GnosisSafeContractArtifact } from './types'
 import { parseFoundryContractArtifact } from './utils'
 
 /* eslint-disable @typescript-eslint/no-var-requires */
-export const ManagedServiceArtifact = parseFoundryContractArtifact(
-  require('../contract-artifacts/sphinx/ManagedService.sol/ManagedService.json')
+export const PermissionlessRelayArtifact = parseFoundryContractArtifact(
+  require('../contract-artifacts/sphinx/PermissionlessRelay.sol/PermissionlessRelay.json')
 )
 export const SphinxModuleArtifact = parseFoundryContractArtifact(
   require('../contract-artifacts/sphinx/SphinxModule.sol/SphinxModule.json')
@@ -12,7 +12,7 @@ export const SphinxModuleProxyFactoryArtifact = parseFoundryContractArtifact(
   require('../contract-artifacts/sphinx/SphinxModuleProxyFactory.sol/SphinxModuleProxyFactory.json')
 )
 
-export const ManagedServiceABI = ManagedServiceArtifact.abi
+export const ManagedServiceABI = PermissionlessRelayArtifact.abi
 export const SphinxModuleABI = SphinxModuleArtifact.abi
 export const SphinxModuleProxyFactoryABI = SphinxModuleProxyFactoryArtifact.abi
 

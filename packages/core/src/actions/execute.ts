@@ -4,7 +4,7 @@ import {
   SphinxLeafWithProof,
   ManagedServiceABI,
   SphinxMerkleTree,
-  getManagedServiceAddress,
+  getPermissionlessRelayAddress,
   SphinxLeafType,
   getGnosisSafeSingletonAddress,
   GnosisSafeProxyFactoryArtifact,
@@ -35,7 +35,6 @@ import {
   getReadableActions,
   getSphinxWalletsSortedByAddress,
   removeSphinxWalletsFromGnosisSafeOwners,
-  setManagedServiceRelayer,
   toSphinxLeafWithProofArray,
 } from '../utils'
 import {
@@ -558,10 +557,6 @@ export const injectRoles: InjectRoles = async (
     )
   }
 
-  // Before we can execute the deployment, we must assign the relayer role to the signer so they
-  // will be able to execute transactions via the managed service contract.
-  await setManagedServiceRelayer(wallet.address, deploymentContext.provider)
-
   // Before we can approve the deployment, we must add a set of auto-generated wallets as owners of
   // the Gnosis Safe. This allows us to approve the deployment without knowing the private keys of
   // the actual Gnosis Safe owners.
@@ -596,7 +591,7 @@ export const removeRoles: RemoveRoles = async (
   )
 }
 
-export const approveDeploymentViaManagedService: ApproveDeployment = async (
+export const approveDeploymentViaRelay: ApproveDeployment = async (
   merkleRoot,
   approvalLeafWithProof,
   executionMode,
@@ -604,8 +599,8 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   deploymentContext
 ) => {
   const { moduleAddress } = deploymentContext.deployment
-  const managedServiceReadOnly = new ethers.Contract(
-    getManagedServiceAddress(),
+  const relayReadOnly = new ethers.Contract(
+    getPermissionlessRelayAddress(),
     ManagedServiceABI
   )
   const packedOwnerSignatures = ethers.solidityPacked(
@@ -623,7 +618,7 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
     [merkleRoot, approvalLeafWithProof, packedOwnerSignatures]
   )
 
-  const execData = managedServiceReadOnly.interface.encodeFunctionData('exec', [
+  const execData = relayReadOnly.interface.encodeFunctionData('exec', [
     moduleAddress,
     approvalData,
   ])
@@ -631,7 +626,7 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   return deploymentContext.executeTransaction(
     deploymentContext,
     {
-      to: getManagedServiceAddress(),
+      to: getPermissionlessRelayAddress(),
       data: execData,
       chainId: deploymentContext.deployment.chainId,
     },
@@ -648,7 +643,7 @@ export const executeActionsViaManagedService: ExecuteActions = async (
   const { provider } = deploymentContext
   const { moduleAddress, chainId } = deploymentContext.deployment
   const managedService = new ethers.Contract(
-    getManagedServiceAddress(),
+    getPermissionlessRelayAddress(),
     ManagedServiceABI
   )
 
@@ -679,7 +674,7 @@ export const executeActionsViaManagedService: ExecuteActions = async (
   return deploymentContext.executeTransaction(
     deploymentContext,
     {
-      to: getManagedServiceAddress(),
+      to: getPermissionlessRelayAddress(),
       data: managedServiceExecData,
       chainId: deploymentContext.deployment.chainId,
     },
@@ -935,7 +930,7 @@ const executeDeployment = async (
     executionMode === ExecutionMode.Platform
   ) {
     estimateGas = estimateGasViaManagedService
-    approveDeployment = approveDeploymentViaManagedService
+    approveDeployment = approveDeploymentViaRelay
     executeActions = executeActionsViaManagedService
   } else if (executionMode === ExecutionMode.LiveNetworkCLI) {
     estimateGas = estimateGasViaSigner

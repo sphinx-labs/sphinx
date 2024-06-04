@@ -7,7 +7,6 @@ import {
 } from 'ethers'
 
 import {
-  ManagedServiceArtifact,
   SphinxModuleProxyFactoryArtifact,
   SimulateTxAccessorArtifact,
   GnosisSafeProxyFactoryArtifact,
@@ -24,6 +23,7 @@ import {
   CheckBalanceLowArtifact,
   SphinxModuleProxyFactoryABI,
   GnosisSafeProxyArtifact,
+  PermissionlessRelayArtifact,
 } from './ifaces'
 import {
   getOwnerAddress,
@@ -35,20 +35,11 @@ export const getManagedServiceConstructorArgs = () => {
   return [getOwnerAddress()]
 }
 
-export const getManagedServiceAddress = () => {
+export const getPermissionlessRelayAddress = () => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
-    solidityPackedKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ManagedServiceArtifact.bytecode,
-        AbiCoder.defaultAbiCoder().encode(
-          ['address'],
-          getManagedServiceConstructorArgs()
-        ),
-      ]
-    )
+    solidityPackedKeccak256(['bytes'], [PermissionlessRelayArtifact.bytecode])
   )
 }
 
@@ -166,21 +157,6 @@ export const getGnosisSafeSingletonAddress = () => {
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
     solidityPackedKeccak256(['bytes'], [GnosisSafeArtifact.bytecode])
-  )
-}
-
-// Drippie
-export const getDrippieAddress = () => {
-  return getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    ZeroHash,
-    solidityPackedKeccak256(
-      ['bytes', 'bytes'],
-      [
-        DrippieArtifact.bytecode,
-        AbiCoder.defaultAbiCoder().encode(['address'], [getOwnerAddress()]),
-      ]
-    )
   )
 }
 
