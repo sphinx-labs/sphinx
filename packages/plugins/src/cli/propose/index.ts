@@ -308,8 +308,7 @@ export const propose = async (
     networks,
     testnets,
     mainnets,
-    foundryToml.rpcEndpoints,
-    sphinxContext.isLiveNetwork
+    foundryToml.rpcEndpoints
   )
 
   spinner.succeed(`Validated networks.`)

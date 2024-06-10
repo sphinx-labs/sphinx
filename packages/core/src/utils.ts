@@ -374,9 +374,13 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
 }
 
 export const fetchSphinxManagedBaseUrl = () => {
-  return process.env.SPHINX_MANAGED_BASE_URL
-    ? process.env.SPHINX_MANAGED_BASE_URL
-    : 'https://www.sphinx.dev'
+  if (process.env.SPHINX_MANAGED_BASE_URL) {
+    return process.env.SPHINX_MANAGED_BASE_URL
+  } else {
+    throw new Error(
+      'You must define a SPHINX_MANAGED_BASE_URL environment variable pointing to your Sphinx instance.'
+    )
+  }
 }
 
 export const readSphinxLock = async (): Promise<SphinxLock> => {

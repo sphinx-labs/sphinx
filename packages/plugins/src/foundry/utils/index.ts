@@ -82,14 +82,12 @@ import {
 import { AssertNoLinkedLibraries } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
-import { SphinxContext } from '../../cli/context'
 import {
   InvalidFirstSigArgumentErrorMessage,
   SigCalledWithNoArgsErrorMessage,
   SphinxConfigMainnetsContainsTestnetsErrorMessage,
   SphinxConfigTestnetsContainsMainnetsErrorMessage,
   getFailedRequestErrorMessage,
-  getLocalNetworkErrorMessage,
   getMissingEndpointErrorMessage,
   getMixedNetworkTypeErrorMessage,
   getUnsupportedNetworkErrorMessage,
@@ -1497,8 +1495,7 @@ export const validateProposalNetworks = async (
   cliNetworks: Array<string>,
   configTestnets: Array<string>,
   configMainnets: Array<string>,
-  rpcEndpoints: FoundryToml['rpcEndpoints'],
-  isLiveNetwork: SphinxContext['isLiveNetwork']
+  rpcEndpoints: FoundryToml['rpcEndpoints']
 ): Promise<{ rpcUrls: Array<string>; isTestnet: boolean }> => {
   if (cliNetworks.length === 0) {
     throw new Error(`Expected at least one network, but none were supplied.`)
@@ -1549,12 +1546,6 @@ export const validateProposalNetworks = async (
         type: 'unsupported',
         network,
         chainId: networkInfo.chainId.toString(),
-      }
-    }
-
-    if (!(await isLiveNetwork(provider))) {
-      if (process.env.SPHINX_INTERNAL__ALLOW_LOCAL_NODES !== 'true') {
-        return { type: 'localNetwork', network }
       }
     }
 
@@ -1622,12 +1613,6 @@ export const validateProposalNetworks = async (
 
   if (unsupported.length > 0) {
     throw new Error(getUnsupportedNetworkErrorMessage(unsupported))
-  }
-
-  if (localNetwork.length > 0) {
-    if (process.env.SPHINX_INTERNAL__ALLOW_LOCAL_NODES !== 'true') {
-      throw new Error(getLocalNetworkErrorMessage(localNetwork))
-    }
   }
 
   // Check if the array contains a mix of test networks and production networks. We check this after
