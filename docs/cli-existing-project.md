@@ -34,7 +34,7 @@ In this guide, you'll propose the deployment on the command line and then approv
 
 ## 1. Prerequisites
 
-* You must have an invite link to the DevOps platform because it's currently invite-only. [Request access on Sphinx's website.](https://sphinx.dev)
+* You must have a running instance of the [Sphinx Platform](https://github.com/sphinx-labs/sphinx-platform/block/main/docs/local.md).
 * You must have an existing Foundry project that includes a Forge script. If you don't, we recommend following the [Getting Started in a New Repository guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-quickstart.md) instead.
 * You must have an RPC node provider API key. If you don't already have one, we recommend [Alchemy](https://www.alchemy.com/) or [Infura](https://www.infura.io/).
 * You must have an account that exists on live networks. This account will own your Gnosis Safe.
@@ -182,6 +182,11 @@ function configureSphinx() public override {
 You'll need to update the `projectName` field to match the Project Name you created in the Sphinx UI.
 
 ## 10. Add environment variables
+
+Add your Sphinx instance url to your environment file:
+```
+SPHINX_MANAGED_BASE_URL=<your_sphinx_instance_url>
+```
 
 Get your Sphinx API Key from the Sphinx UI and add it as an environment variable:
 ```
