@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.23.0
+
+### Minor Changes
+
+- ee6eeed: Opensource platform
+
 ## 0.22.0
 
 ### Minor Changes
