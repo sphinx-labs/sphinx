@@ -27,15 +27,12 @@ Deployments with Sphinx are a three-step process:
 
 * **No Lock-In**: You can execute deployments from your local machine without using the Sphinx DevOps Platform. These deployments are executed in the exact same manner as they would be executed with the DevOps Platform, including identical contract addresses. This includes networks that the DevOps Platform doesn't currently support.
 
-## Request Access
-
-Sphinx is currently invite-only. [Request access on our website](https://sphinx.dev).
+## Self Hosting
+Sphinx is designed to be used with the [Sphinx Platform](https://github.com/sphinx-labs/sphinx-platform) which you must host yourself. You can find information on running the Sphinx Platform locally and recommendations for hosting in the [Sphinx Platform documentation](https://github.com/sphinx-labs/sphinx-platform/blob/main/docs).
 
 ## Pricing
 
-Pricing for the DevOps Platform is on the [website's landing page](https://sphinx.dev).
-
-Sphinx does not charge for the [Deploy CLI Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md), which executes the deployment from your local machine without using the DevOps Platform. However, since it doesn't use the DevOps Platform, you'll need native gas tokens for the deployment.
+Sphinx is free and open source. You must host the Sphinx platform yourself to be able to use it.
 
 ## Demo
 
@@ -83,9 +80,8 @@ A demo of the DevOps Platform is on the [website's landing page](https://sphinx.
 
 Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) to request a feature!
 
-## Networks Supported by the DevOps Platform
-
-> Note: You can use the [Deploy CLI Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md) to deploy on networks that the DevOps Platform doesn't currently support.
+## Networks Supported
+The Sphinx core contracts are deployed on the following networks.
 
 - Ethereum
 - Optimism
@@ -142,22 +138,12 @@ Test networks:
 - Mantle Sepolia
 - Astar zKyoto
 
-More networks are on the way! Please reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
-
 ## Contributors
 
 [@rpate97](https://github.com/RPate97)\
 [@sam-goldman](https://github.com/sam-goldman)\
 [@smartcontracts](https://github.com/smartcontracts)\
 [Wonderland](https://defi.sucks/)
-
-## Contributing
-
-Contributions to Sphinx are greatly appreciated! Please read our [contributing guide](https://github.com/sphinx-labs/sphinx/blob/main/CONTRIBUTING.md) to get started. Then, check out the list of [Good First Issues](https://github.com/sphinx-labs/sphinx/contribute). Let us know if you have any questions!
-
-## Reach Out
-
-If you have any questions or feature requests, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
 
 ## License
 
