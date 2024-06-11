@@ -164,7 +164,6 @@ export type ProposalRequest = {
   projectName: string
   chainIds: Array<number>
   projectDeployments: Array<ProjectDeployment>
-  gasEstimates: Array<NetworkGasEstimate>
   diff: SphinxPreview
   compilerConfigId: string | undefined
   deploymentConfigId: string | undefined

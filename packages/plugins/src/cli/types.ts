@@ -1,12 +1,10 @@
 import ora from 'ora'
 import { ethers } from 'ethers'
 import {
-  DeploymentConfig,
   ConfigArtifacts,
   GetConfigArtifacts,
   NetworkConfig,
   BuildInfos,
-  NetworkGasEstimate,
 } from '@sphinx-labs/core'
 
 import { FoundryToml } from '../foundry/types'
@@ -44,12 +42,6 @@ export interface ArtifactsCommandArgs {
   projectName: string
   silent: boolean
 }
-
-export type GetNetworkGasEstimate = (
-  deploymentConfig: DeploymentConfig,
-  chainId: string,
-  rpcUrl: string
-) => Promise<NetworkGasEstimate>
 
 export type BuildNetworkConfigArray = (
   scriptPath: string,

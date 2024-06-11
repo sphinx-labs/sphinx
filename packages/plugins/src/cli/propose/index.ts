@@ -308,8 +308,7 @@ export const propose = async (
     networks,
     testnets,
     mainnets,
-    foundryToml.rpcEndpoints,
-    sphinxContext.isLiveNetwork
+    foundryToml.rpcEndpoints
   )
 
   spinner.succeed(`Validated networks.`)
@@ -370,17 +369,6 @@ export const propose = async (
     buildInfos,
     merkleTree
   )
-
-  const gasEstimatesPromises = networkConfigArrayWithRpcUrls
-    .filter(({ networkConfig }) => networkConfig.actionInputs.length > 0)
-    .map(({ networkConfig, rpcUrl }) =>
-      sphinxContext.getNetworkGasEstimate(
-        deploymentConfig,
-        networkConfig.chainId,
-        rpcUrl
-      )
-    )
-  const gasEstimates = await Promise.all(gasEstimatesPromises)
 
   spinner.succeed(`Simulation succeeded.`)
   const preview = getPreview(networkConfigArray, merkleTree.root)
@@ -455,7 +443,6 @@ export const propose = async (
     safeAddress,
     moduleAddress,
     projectDeployments,
-    gasEstimates,
     diff: preview,
     compilerConfigId: undefined,
     deploymentConfigId: undefined,
