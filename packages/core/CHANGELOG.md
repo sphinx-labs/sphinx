@@ -1,5 +1,16 @@
 # @sphinx-labs/core
 
+## 0.26.0
+
+### Minor Changes
+
+- ee6eeed: Opensource platform
+
+### Patch Changes
+
+- Updated dependencies [ee6eeed]
+  - @sphinx-labs/contracts@0.23.0
+
 ## 0.25.2
 
 ### Patch Changes
