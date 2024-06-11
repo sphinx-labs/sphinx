@@ -1,5 +1,4 @@
 import { resolve } from 'path'
-import { existsSync } from 'fs'
 import child_process from 'child_process'
 
 import sinon from 'sinon'
@@ -60,7 +59,6 @@ import {
   SphinxConfigMainnetsContainsTestnetsErrorMessage,
   SphinxConfigTestnetsContainsMainnetsErrorMessage,
   getFailedRequestErrorMessage,
-  getLocalNetworkErrorMessage,
   getMissingEndpointErrorMessage,
   getMixedNetworkTypeErrorMessage,
   getUnsupportedNetworkErrorMessage,
@@ -130,105 +128,6 @@ describe('Utils', async () => {
         artifactFolder
       )
       expect(artifact.contractName).equals('SphinxScript')
-    })
-
-    // Tests scenarios where there are multiple contracts with the same name but located in
-    // different directories or with different source file names.
-    it('Gets artifacts for contracts with the same name', async () => {
-      // The source name and contract name of this contract match.
-      const contractOne =
-        'contracts/test/DuplicateContractName.sol:DuplicateContractName'
-      // The source name and contract name of this contract don't match.
-      const contractTwo = 'contracts/test/MyContracts.sol:DuplicateContractName'
-      // This contract's source file is nested one level. We use the absolute path because it's
-      // possible that the artifact path is an absolute path in production. This isn't strictly
-      // necessary to test, but it adds variety to this test case.
-      const absolutePath = resolve(
-        'contracts/test/deep/DuplicateContractName.sol'
-      )
-      const contractThree = `${absolutePath}:DuplicateContractName`
-      // This contract's source file is nested two levels.
-      const contractFour =
-        'contracts/test/deep/deeper/DuplicateContractName.sol:DuplicateContractName'
-      // This contract is nested only one level, but it shares a parent source directory with the
-      // previous contract. (They both exist in a `deeper` directory).
-      const contractFive =
-        'contracts/test/deeper/DuplicateContractName.sol:DuplicateContractName'
-
-      const artifactOne = await readContractArtifact(
-        contractOne,
-        projectRoot,
-        artifactFolder
-      )
-      const artifactTwo = await readContractArtifact(
-        contractTwo,
-        projectRoot,
-        artifactFolder
-      )
-      const artifactThree = await readContractArtifact(
-        contractThree,
-        projectRoot,
-        artifactFolder
-      )
-      const artifactFour = await readContractArtifact(
-        contractFour,
-        projectRoot,
-        artifactFolder
-      )
-      const artifactFive = await readContractArtifact(
-        contractFive,
-        projectRoot,
-        artifactFolder
-      )
-
-      // Check that the location of the artifact files is correct.
-      // First contract:
-      expect(
-        existsSync(
-          `${artifactFolder}/DuplicateContractName.sol/DuplicateContractName.json`
-        )
-      ).equals(true)
-      // Second contract:
-      expect(
-        existsSync(
-          `${artifactFolder}/MyContracts.sol/DuplicateContractName.json`
-        )
-      ).equals(true)
-      // Third contract:
-      expect(
-        existsSync(
-          `${artifactFolder}/deep/DuplicateContractName.sol/DuplicateContractName.json`
-        )
-      ).equals(true)
-      // Fourth contract:
-      expect(
-        existsSync(
-          `${artifactFolder}/deeper/DuplicateContractName.sol/DuplicateContractName.json`
-        )
-      ).equals(true)
-      // Fifth contract:
-      expect(
-        existsSync(
-          `${artifactFolder}/test/deeper/DuplicateContractName.sol/DuplicateContractName.json`
-        )
-      ).equals(true)
-
-      // Check that we retrieved the correct artifacts.
-      expect(
-        artifactOne.abi.some((e) => e.name === 'duplicateContractOne')
-      ).equals(true)
-      expect(
-        artifactTwo.abi.some((e) => e.name === 'duplicateContractTwo')
-      ).equals(true)
-      expect(
-        artifactThree.abi.some((e) => e.name === 'duplicateContractThree')
-      ).equals(true)
-      expect(
-        artifactFour.abi.some((e) => e.name === 'duplicateContractFour')
-      ).equals(true)
-      expect(
-        artifactFive.abi.some((e) => e.name === 'duplicateContractFive')
-      ).equals(true)
     })
   })
 
@@ -933,7 +832,6 @@ describe('Utils', async () => {
     const unsupportedNetworkOne = 'unsupported1'
     const unsupportedNetworkTwo = 'unsupported2'
 
-    let isLiveNetwork: sinon.SinonSpy
     let rpcEndpoints: FoundryToml['rpcEndpoints']
     let getNetworkStub: sinon.SinonStub
 
@@ -948,7 +846,6 @@ describe('Utils', async () => {
 
       getNetworkStub = sinon.stub()
 
-      isLiveNetwork = sinon.fake.resolves(true)
       sinon
         .stub(SphinxJsonRpcProvider.prototype, 'getNetwork')
         .callsFake(getNetworkStub)
@@ -960,7 +857,7 @@ describe('Utils', async () => {
 
     it('throws an error if no CLI networks are provided', async () => {
       await expect(
-        validateProposalNetworks([], [], [], rpcEndpoints, isLiveNetwork)
+        validateProposalNetworks([], [], [], rpcEndpoints)
       ).to.be.rejectedWith(
         `Expected at least one network, but none were supplied.`
       )
@@ -969,26 +866,14 @@ describe('Utils', async () => {
     it('throws an error for missing RPC endpoints', async () => {
       const unknownNetworks = ['unknown1', 'unknown2']
       await expect(
-        validateProposalNetworks(
-          unknownNetworks,
-          [],
-          [],
-          rpcEndpoints,
-          isLiveNetwork
-        )
+        validateProposalNetworks(unknownNetworks, [], [], rpcEndpoints)
       ).to.be.rejectedWith(getMissingEndpointErrorMessage(unknownNetworks))
     })
 
     it('throws an error for failed requests to RPC endpoints', async () => {
       getNetworkStub.rejects(new Error('Request failed'))
       await expect(
-        validateProposalNetworks(
-          validNetworks,
-          [],
-          [],
-          rpcEndpoints,
-          isLiveNetwork
-        )
+        validateProposalNetworks(validNetworks, [], [], rpcEndpoints)
       ).to.be.rejectedWith(getFailedRequestErrorMessage(validNetworks))
     })
 
@@ -1012,26 +897,11 @@ describe('Utils', async () => {
           [unsupportedNetworkOne, unsupportedNetworkTwo],
           [],
           [],
-          rpcEndpoints,
-          isLiveNetwork
+          rpcEndpoints
         )
       ).to.be.rejectedWith(
         getUnsupportedNetworkErrorMessage(unsupportedNetworks)
       )
-    })
-
-    it('throws error for local networks', async () => {
-      getNetworkStub.resolves({ chainId: BigInt(1) })
-      isLiveNetwork = sinon.fake.resolves(false)
-      await expect(
-        validateProposalNetworks(
-          validNetworks,
-          [],
-          [],
-          rpcEndpoints,
-          isLiveNetwork
-        )
-      ).to.be.rejectedWith(getLocalNetworkErrorMessage(validNetworks))
     })
 
     it('throws an error for mixed network types (test and production)', async () => {
@@ -1046,13 +916,7 @@ describe('Utils', async () => {
       getNetworkStub.onThirdCall().resolves({ chainId: BigInt(11155111) }) // Test network (Sepolia)
 
       await expect(
-        validateProposalNetworks(
-          validNetworks,
-          [],
-          [],
-          rpcEndpoints,
-          isLiveNetwork
-        )
+        validateProposalNetworks(validNetworks, [], [], rpcEndpoints)
       ).to.be.rejectedWith(getMixedNetworkTypeErrorMessage(mixedNetworks))
     })
 
@@ -1064,8 +928,7 @@ describe('Utils', async () => {
           ['mainnets'],
           [],
           [validTestnetOne],
-          rpcEndpoints,
-          isLiveNetwork
+          rpcEndpoints
         )
       ).to.be.rejectedWith(SphinxConfigMainnetsContainsTestnetsErrorMessage)
     })
@@ -1078,8 +941,7 @@ describe('Utils', async () => {
           ['testnets'],
           [validMainnetOne, validMainnetTwo],
           [],
-          rpcEndpoints,
-          isLiveNetwork
+          rpcEndpoints
         )
       ).to.be.rejectedWith(SphinxConfigTestnetsContainsMainnetsErrorMessage)
     })
@@ -1092,8 +954,7 @@ describe('Utils', async () => {
         [validMainnetOne, validMainnetTwo],
         [],
         [],
-        rpcEndpoints,
-        isLiveNetwork
+        rpcEndpoints
       )
       expect(result.rpcUrls).to.deep.equals([
         rpcEndpoints[validMainnetOne],
@@ -1110,8 +971,7 @@ describe('Utils', async () => {
         ['mainnets'],
         [],
         [validMainnetOne, validMainnetTwo],
-        rpcEndpoints,
-        isLiveNetwork
+        rpcEndpoints
       )
       expect(result.rpcUrls).to.deep.equals([
         rpcEndpoints[validMainnetOne],
@@ -1127,8 +987,7 @@ describe('Utils', async () => {
         ['testnets'],
         [validTestnetOne],
         [],
-        rpcEndpoints,
-        isLiveNetwork
+        rpcEndpoints
       )
       expect(result.rpcUrls).to.deep.equals([rpcEndpoints[validTestnetOne]])
       expect(result.isTestnet).to.be.true

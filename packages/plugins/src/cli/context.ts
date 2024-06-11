@@ -19,7 +19,6 @@ import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
   assertNoLinkedLibraries,
-  getNetworkGasEstimate,
   makeGetConfigArtifacts,
 } from '../foundry/utils'
 import { ProposeArgs, buildNetworkConfigArray, propose } from './propose'
@@ -28,7 +27,6 @@ import {
   AssertNoLinkedLibraries,
   BuildNetworkConfigArray,
   FetchRemoteArtifacts,
-  GetNetworkGasEstimate,
 } from './types'
 import { fetchRemoteArtifacts } from './artifacts'
 
@@ -57,7 +55,6 @@ export type SphinxContext = {
     receipts?: Array<SphinxTransactionReceipt>
     configArtifacts?: ConfigArtifacts
   }>
-  getNetworkGasEstimate: GetNetworkGasEstimate
   buildNetworkConfigArray: BuildNetworkConfigArray
   storeDeploymentConfig: StoreDeploymentConfig
   relayProposal: RelayProposal
@@ -72,7 +69,6 @@ export const makeSphinxContext = (): SphinxContext => {
     isLiveNetwork,
     propose,
     deploy,
-    getNetworkGasEstimate,
     buildNetworkConfigArray,
     storeDeploymentConfig,
     relayProposal,

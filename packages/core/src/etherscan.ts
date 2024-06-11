@@ -10,6 +10,7 @@ import {
   optimismPeripheryBuildInfo,
   remove0x,
   sphinxBuildInfo,
+  permissionlessRelayBuildInfo,
 } from '@sphinx-labs/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { ChainConfig } from '@nomicfoundation/hardhat-verify/types'
@@ -340,6 +341,11 @@ export const verifySphinxSystem = async (
         buildInfo.solcLongVersion = formatSolcLongVersion(
           buildInfo.solcLongVersion
         )
+      } else if (type === SystemContractType.PERMISSIONLESS_RELAY) {
+        buildInfo = permissionlessRelayBuildInfo
+        permissionlessRelayBuildInfo.solcLongVersion = formatSolcLongVersion(
+          buildInfo.solcLongVersion
+        )
       } else if (type === SystemContractType.OPTIMISM) {
         buildInfo = optimismPeripheryBuildInfo
       } else if (type === SystemContractType.GNOSIS_SAFE) {
@@ -364,7 +370,7 @@ export const verifySphinxSystem = async (
 
       const encodedConstructorArgs = iface.encodeDeploy(constructorArgs)
 
-      await attemptVerification(
+      const res = await attemptVerification(
         expectedAddress,
         encodedConstructorArgs,
         `${sourceName}:${contractName}`,
@@ -374,6 +380,10 @@ export const verifySphinxSystem = async (
         String(chainId),
         etherscanApiKey
       )
+
+      if (!res.success) {
+        console.error(res.message)
+      }
     }
 
     logger.info(
