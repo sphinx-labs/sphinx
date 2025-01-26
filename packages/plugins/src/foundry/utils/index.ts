@@ -785,12 +785,12 @@ export const getForgeScriptArgs = (
     ...args,
   ]
 
-  if (silent) {
-    forgeScriptArgs.push('--silent')
-  }
-
+  // In new versions of foundry the existence of the `--json` flag also implies `--silent`.
+  // So we only append the `silent` flag if `json` is false.
   if (json) {
     forgeScriptArgs.push('--json')
+  } else if (silent) {
+    forgeScriptArgs.push('--silent')
   }
 
   if (broadcast) {
