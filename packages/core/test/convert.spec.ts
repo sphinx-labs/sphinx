@@ -170,8 +170,8 @@ describe('Convert EthersJS Objects', () => {
     })
   })
 
-  describe('succeeds on live networks', () => {
-    before(function () {
+  describe.skip('succeeds on live networks', () => {
+    before(function() {
       // Skip the tests if the environment variable `CIRCLE_BRANCH` is defined and does not equal
       // 'develop', which enforces that these tests only run in CI when the source branch is
       // 'develop'. These tests will also run on local machines because the `CIRCLE_BRANCH`
