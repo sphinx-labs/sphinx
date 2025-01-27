@@ -785,12 +785,13 @@ export const getForgeScriptArgs = (
     ...args,
   ]
 
-  if (silent) {
-    forgeScriptArgs.push('--silent')
-  }
-
+  // In new versions of foundry the existence of the `--json` flag also implies `--silent`.
+  // So we only append the `silent` flag if `json` is false.
+  // TODO: Check what foundry version is being used locally, if its ^0.3.0 use the logic below, otherwise use the logic as we had it before.
   if (json) {
     forgeScriptArgs.push('--json')
+  } else if (silent) {
+    forgeScriptArgs.push('--silent')
   }
 
   if (broadcast) {
@@ -1312,8 +1313,8 @@ export const assertValidVersions = async (
   )
 
   const libraryVersion = output.returns.libraryVersion.value
-    // The raw string is wrapped in two sets of quotes, so we remove the outer quotes here.
-    .slice(1, -1)
+    // If the version number contains any quotes we remove them
+    .replace(/"/g, '')
   const forkInstalled = output.returns.forkInstalled.value
 
   if (libraryVersion !== CONTRACTS_LIBRARY_VERSION) {

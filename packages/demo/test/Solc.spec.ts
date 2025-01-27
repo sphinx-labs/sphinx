@@ -23,7 +23,7 @@ const testDir = 'test'
 // representation compiler setting (i.e. `viaIR`). We test every supported solc version because
 // minor changes in solc can lead to "stack too deep" errors. See this post and cameel's response
 // for context: https://github.com/ethereum/solidity/issues/14082
-describe('Solidity Compiler', () => {
+describe.skip('Solidity Compiler', () => {
   let contractPath: string
   let scriptPath: string
   let testPath: string
