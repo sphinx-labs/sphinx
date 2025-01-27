@@ -787,6 +787,7 @@ export const getForgeScriptArgs = (
 
   // In new versions of foundry the existence of the `--json` flag also implies `--silent`.
   // So we only append the `silent` flag if `json` is false.
+  // TODO: Check what foundry version is being used locally, if its ^0.3.0 use the logic below, otherwise use the logic as we had it before.
   if (json) {
     forgeScriptArgs.push('--json')
   } else if (silent) {
