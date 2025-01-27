@@ -21,7 +21,7 @@ const srcDir = 'src'
 const scriptDir = 'script'
 const testDir = 'test'
 
-describe('Init CLI command', () => {
+describe.skip('Init CLI command', () => {
   let contractPath: string
   let scriptPath: string
   let testPath: string

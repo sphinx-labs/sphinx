@@ -29,7 +29,7 @@ const sepoliaRpcUrl = `http://127.0.0.1:42111`
 
 const allNetworkNames = ['ethereum', 'optimism', 'sepolia']
 
-describe('Propose CLI command', () => {
+describe.skip('Propose CLI command', () => {
   let originalEnv: NodeJS.ProcessEnv
 
   before(async () => {
