@@ -1,5 +1,5 @@
 ## Description
-<!--- Describe your changes in detail -->
+<!-- Clearly describe the changes made in this PR. Provide context if necessary. -->
 
 ## Related Issue
 <!--- This project only accepts pull requests related to open issues -->
@@ -9,11 +9,11 @@
 
 ## Type of change
 <!--- Please delete options that are not relevant. --->
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Contract Breaking Change (fix or feature that would cause the system to no longer work with contracts currently deployed on live networks)
-- [ ] Documentation update
+- [ ] 🐛 Bug fix (non-breaking change which fixes an issue)
+- [ ] ✨ New feature (non-breaking change which adds functionality)
+- [ ] ⚠️ Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] 🔗 Contract Breaking Change (fix or feature that would cause the system to no longer work with contracts currently deployed on live networks)
+- [ ] 📚 Documentation update
 
 ## Motivation and Context
 <!--- Why is this change required? What problem does it solve? -->
@@ -23,3 +23,4 @@
 <!--- Please describe any automated tests you've added to test your changes. -->
 
 ## Example Sphinx Deployment Script (if appropriate):
+<!-- Provide an example script if the changes relate to Sphinx deployments. -->
