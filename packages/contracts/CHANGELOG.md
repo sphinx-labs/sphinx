@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.23.1
+
+### Patch Changes
+
+- e9379fb: Fixes to make Sphinx work with latest foundry version(s)
+
 ## 0.23.0
 
 ### Minor Changes
