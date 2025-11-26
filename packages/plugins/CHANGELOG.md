@@ -1,5 +1,12 @@
 # @sphinx-labs/plugins
 
+## 0.33.1
+
+### Patch Changes
+
+- 0a0cdef: Fix for library version error
+- f4aa08d: Fix for `the argument '--quiet' cannot be used with '--json'`
+
 ## 0.33.0
 
 ### Minor Changes
