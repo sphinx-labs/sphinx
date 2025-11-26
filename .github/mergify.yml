@@ -1,6 +1,13 @@
 queue_rules:
-  - name: default
-    conditions: []
+  - name: main-queue
+    merge_method: merge
+    queue_conditions:
+      - base=main
+
+  - name: develop-queue
+    merge_method: squash
+    queue_conditions:
+      - base=develop
 
 pull_request_rules:
   - name: Automatic merge on approval (main)
@@ -21,8 +28,7 @@ pull_request_rules:
         - "check-success=license/cla"
     actions:
       queue:
-        name: default
-        method: merge
+        name: main-queue
 
   - name: Automatic merge on approval (develop)
     conditions:
@@ -42,8 +48,7 @@ pull_request_rules:
         - "check-success=license/cla"
     actions:
       queue:
-        name: default
-        method: squash
+        name: develop-queue
 
   - name: Add merge train label
     conditions:
