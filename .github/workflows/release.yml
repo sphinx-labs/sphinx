@@ -13,20 +13,20 @@ jobs:
 
     steps:
       - name: Check out source code
-        uses: actions/checkout@master
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js 18.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: 18.x
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
-        run: echo "::set-output name=dir::$(yarn cache dir)"
+        run: echo "dir=$(yarn cache dir)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         id: yarn-cache
         with:
           path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
@@ -54,9 +54,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish Solidity Library
         if: steps.changesets.outputs.published == 'true'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         env:
           PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         with:
@@ -71,3 +72,4 @@ jobs:
                 sha: context.sha
               });
             }
+
