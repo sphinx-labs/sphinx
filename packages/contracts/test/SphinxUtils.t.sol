@@ -340,7 +340,7 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
         vm.expectRevert(
             "Sphinx: Detected missing Sphinx config. Are you sure you implemented the `configureSphinx` function correctly?\nSee the configuration options reference for more information:\nhttps://github.com/sphinx-labs/sphinx/blob/master/docs/writing-scripts.md#configuration-options"
         );
-        validate(config);
+        this.validate(config);
     }
 
     function test_getNumNestedAccountAccesses_success_nextAccessIsRootWithDifferentChainId()

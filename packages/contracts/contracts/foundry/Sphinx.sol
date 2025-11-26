@@ -61,6 +61,12 @@ abstract contract Sphinx {
     bool private sphinxModifierEnabled;
 
     /**
+     * @dev In foundry scripts the `ADDRESS` opcode is no longer allowed,
+     *      we need to jump through a few hoops to get our own address, then we store it here for later use.
+     */
+    address private selfAddress;
+
+    /**
      * @dev Tracks the amount of funding we need to transfer to the safe at the beginning of the deployment
      *      We use a mapping for this and for the Safe starting balance because the user may have a complex
      *      script that forks multiple different networks internally. See the `test_fundSafe_success_multifork`
@@ -78,6 +84,9 @@ abstract contract Sphinx {
     constructor() {
         sphinxUtils = new SphinxUtils();
         constants = new SphinxConstants();
+
+        // Cache this current address.
+        selfAddress = sphinxUtils.getSelfAddress();
 
         // This ensures that these contracts stay deployed in a multi-fork environment (e.g. when
         // calling `vm.createSelectFork`).
@@ -132,7 +141,7 @@ abstract contract Sphinx {
         string memory _deploymentInfoPath,
         uint64 _callDepth
     ) external returns (FoundryDeploymentInfo memory) {
-        sphinxUtils.validateProposal(address(this));
+        sphinxUtils.validateProposal(selfAddress);
 
         FoundryDeploymentInfo memory deploymentInfo = sphinxCollect(
             ExecutionMode.Platform,
@@ -157,7 +166,7 @@ abstract contract Sphinx {
     ) external {
         address deployer;
         if (_executionMode == ExecutionMode.LiveNetworkCLI) {
-            sphinxUtils.validateLiveNetworkCLI(IGnosisSafe(safeAddress()), address(this));
+            sphinxUtils.validateLiveNetworkCLI(IGnosisSafe(safeAddress()), selfAddress);
             deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         } else if (_executionMode == ExecutionMode.LocalNetworkCLI) {
             // Set the `ManagedService` contract as the deployer. Although this isn't strictly
@@ -203,7 +212,7 @@ abstract contract Sphinx {
             sphinxConfig,
             _executionMode,
             _executor,
-            address(this)
+            selfAddress
         );
 
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
@@ -229,7 +238,7 @@ abstract contract Sphinx {
 
         vm.startStateDiffRecording();
         // Delegatecall the entry point function on this contract to collect the transactions.
-        (bool success, ) = address(this).delegatecall(_scriptFunctionCalldata);
+        (bool success, ) = selfAddress.delegatecall(_scriptFunctionCalldata);
         // Throw an error if the deployment script fails. The error message in the user's script is
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
@@ -257,7 +266,7 @@ abstract contract Sphinx {
         vm.revertTo(snapshotId);
 
         return
-            sphinxUtils.finalizeDeploymentInfo(deploymentInfo, accesses, _callDepth, address(this));
+            sphinxUtils.finalizeDeploymentInfo(deploymentInfo, accesses, _callDepth, selfAddress);
     }
 
     /**
@@ -289,7 +298,7 @@ abstract contract Sphinx {
         // `deploy`, then we'll turn it back on at the end of this modifier.
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
 
-        sphinxUtils.fetchAndValidateConfig(address(this));
+        sphinxUtils.fetchAndValidateConfig(selfAddress);
 
         // Prank the Gnosis Safe then execute the user's script. We prank the Gnosis
         // Safe to replicate the production environment.
@@ -307,7 +316,7 @@ abstract contract Sphinx {
      *         `sphinxConfig.owners` array and `sphinxConfig.threshold` must be set.
      */
     function sphinxModule() public returns (address) {
-        return sphinxUtils.getSphinxModuleAddress(address(this));
+        return sphinxUtils.getSphinxModuleAddress(selfAddress);
     }
 
     /**
@@ -315,7 +324,7 @@ abstract contract Sphinx {
      *         `sphinxConfig.owners` array and `sphinxConfig.threshold` must be set.
      */
     function safeAddress() public returns (address) {
-        return sphinxUtils.getGnosisSafeProxyAddress(address(this));
+        return sphinxUtils.getGnosisSafeProxyAddress(selfAddress);
     }
 
     /**
@@ -353,7 +362,7 @@ abstract contract Sphinx {
      *         data types that are returned by invoking Forge scripts.
      */
     function userSphinxConfigABIEncoded() public returns (bytes memory) {
-        UserSphinxConfig memory config = sphinxUtils.fetchAndValidateConfig(address(this));
+        UserSphinxConfig memory config = sphinxUtils.fetchAndValidateConfig(selfAddress);
         return abi.encode(config, safeAddress(), sphinxModule());
     }
 }
