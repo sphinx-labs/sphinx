@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.33.2
+
+### Patch Changes
+
+- e9379fb: Fixes to make Sphinx work with latest foundry version(s)
+- Updated dependencies [e9379fb]
+  - @sphinx-labs/contracts@0.23.1
+
 ## 0.33.1
 
 ### Patch Changes
