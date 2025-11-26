@@ -1251,6 +1251,10 @@ contract SphinxUtils is SphinxConstants {
         return _deploymentInfo;
     }
 
+    function getSelfAddress() external view returns (address) {
+        return msg.sender;
+    }
+
     function concatJsonPath(string memory a, string memory b) public pure returns (string memory) {
         return string(abi.encodePacked(a, ".", b));
     }
