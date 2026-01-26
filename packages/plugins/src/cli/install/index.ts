@@ -10,9 +10,6 @@ const installWithUpdate = async (spinner: ora.Ora) => {
   const args = [
     'install',
     `sphinx-labs/sphinx@${CONTRACTS_LIBRARY_VERSION}`,
-    // We always use --no-commit here because it's necessary if the user has any files that have been changed, but not committed.
-    // This will almost always be the case during installation b/c the user first needs to install our CLI.
-    '--no-commit',
   ]
 
   // Check if the library is installed
@@ -77,7 +74,7 @@ export const handleInstall = async (spinner: ora.Ora) => {
   // Foundry doesn't consistently install our subdependency, so we make sure it's installed ourselves.
   // We should test this out later and remove if possible.
   execSync(
-    'cd lib/sphinx/packages/contracts && forge install --no-commit && cd ../../ && git restore packages/contracts/foundry.toml',
+    'cd lib/sphinx/packages/contracts && forge install && cd ../../ && git restore packages/contracts/foundry.toml',
     { stdio: 'ignore' }
   )
   spinner.succeed('Successfully installed Sphinx Solidity library')
