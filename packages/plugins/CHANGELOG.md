@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.33.3
+
+### Patch Changes
+
+- f05fe31: Remove `--no-commit` foundry option as no commit is now the default and no longer supported as an argument
+
 ## 0.33.2
 
 ### Patch Changes
