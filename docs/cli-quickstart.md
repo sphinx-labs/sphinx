@@ -27,7 +27,7 @@ In this guide, you'll create a sample project, propose it on the command line, a
 * You must have a running instance of the [Sphinx Platform](https://github.com/sphinx-labs/sphinx-platform/block/main/docs/local.md).
 * You must have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
   * [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
-  * [Writing Deployment Scripts with Foundry](https://book.getfoundry.sh/tutorials/solidity-scripting)
+  * [Writing Deployment Scripts with Foundry](https://book.getfoundry.sh/guides/scripting-with-solidity)
 * You must have an Alchemy API key, which you can get on [their website](https://www.alchemy.com/).
 * You must have an account that exists on live networks. This account will own your Gnosis Safe.
 * The following must be installed on your machine:
