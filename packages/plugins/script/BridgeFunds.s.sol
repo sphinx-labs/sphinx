@@ -19,10 +19,10 @@ contract SphinxScript is LzApp, Script {
     // (1) Update all of the variables in this section.
     // Amount to receive on each destination chain. If you'd like to skip sending funds to a
     // particular chain, set the amount to 0 here.
-    uint256 bnbTestnetAmount = 0; // 1 BNBT
-    uint256 gnosisChiadoAmount = 0; // 2 XDAI
-    uint256 avaxAmount = 150 * (10 ** 18);
-    uint256 ftmAmount = 1000 * (10 ** 18);
+    uint256 constant bnbTestnetAmount = 0; // 1 BNBT
+    uint256 constant gnosisChiadoAmount = 0; // 2 XDAI
+    uint256 constant avaxAmount = 150 * (10 ** 18);
+    uint256 constant ftmAmount = 1000 * (10 ** 18);
     // Address that will receive the funds on the destination chain:
     address tokenReceiver = 0x4856e043a1F2CAA8aCEfd076328b4981Aca91000;
     // Address of the SphinxLZReceiver contract on the destination chain. This is *not* the address
@@ -69,7 +69,7 @@ contract SphinxScript is LzApp, Script {
     uint16 outboundProofType = 1;
     // Default amount of gas to provide for the destination chain call. 200k is recommended by
     // LayerZero.
-    uint256 dstGasAmount = 200_000;
+    uint256 constant dstGasAmount = 200_000;
 
     FundingInfo[] fundingInfo;
 
