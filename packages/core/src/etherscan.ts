@@ -22,6 +22,7 @@ import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import {
   fetchNetworkConfigFromDeploymentConfig,
   formatSolcLongVersion,
+  getAbiEncodedConstructorArgs,
   isLiveNetwork,
   sleep,
 } from './utils'
@@ -69,9 +70,9 @@ export const verifySphinxConfig = async (
       // method works even if the `artifact.bytecode` contains externally linked library
       // placeholders or immutable variable placeholders, which are always the same length as the
       // real values.
-      const encodedConstructorArgs = ethers.dataSlice(
+      const encodedConstructorArgs = getAbiEncodedConstructorArgs(
         initCodeWithArgs,
-        ethers.dataLength(artifact.bytecode)
+        artifact.bytecode
       )
 
       const result = await attemptVerification(
@@ -131,9 +132,9 @@ export const verifyDeploymentWithRetries = async (
         // method works even if the `artifact.bytecode` contains externally linked library
         // placeholders or immutable variable placeholders, which are always the same length as the
         // real values.
-        const encodedConstructorArgs = ethers.dataSlice(
+        const encodedConstructorArgs = getAbiEncodedConstructorArgs(
           initCodeWithArgs,
-          ethers.dataLength(artifact.bytecode)
+          artifact.bytecode
         )
 
         const result = await attemptVerification(

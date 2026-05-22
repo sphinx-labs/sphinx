@@ -1360,6 +1360,19 @@ export const getBytesLength = (hexString: string): number => {
 }
 
 /**
+ * Replace unresolved solc library placeholders with zero bytes.
+ *
+ * Solc emits placeholders like `__$<34 hex chars>$__` for unlinked libraries. The placeholders
+ * are the same length as an address, but they are not valid hex strings.
+ */
+export const zeroOutSolcLibraryPlaceholders = (value: string): string => {
+  return value.replace(
+    /__\$[0-9a-fA-F]{34}\$__/g,
+    remove0x(ethers.ZeroAddress)
+  )
+}
+
+/**
  * Replace library references in the `bytecode` with zeros. This function uses the `linkReferences`
  * to find the location of the library references.
  *
@@ -1408,7 +1421,7 @@ export const getAbiEncodedConstructorArgs = (
   initCodeWithArgs: string,
   artifactBytecode: string
 ): string => {
-  return ethers.dataSlice(initCodeWithArgs, ethers.dataLength(artifactBytecode))
+  return ethers.dataSlice(initCodeWithArgs, getBytesLength(artifactBytecode))
 }
 
 /**
