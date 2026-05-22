@@ -11,7 +11,13 @@ import {
   formatSolcLongVersion,
 } from '../src/utils'
 import { ABI } from './common'
-import { callWithTimeout, getBytesLength, getMaxGasLimit } from '../dist'
+import {
+  callWithTimeout,
+  getAbiEncodedConstructorArgs,
+  getBytesLength,
+  getMaxGasLimit,
+  zeroOutSolcLibraryPlaceholders,
+} from '../dist'
 
 chai.use(sinonChai)
 
@@ -396,6 +402,25 @@ describe('Utils', () => {
       const version = '0.8.23+commit.f704f362.Darwin.appleclang'
       const formattedVersion = formatSolcLongVersion(version)
       expect(formattedVersion).to.equal('0.8.23+commit.f704f362')
+    })
+  })
+
+  describe('bytecode helpers', () => {
+    const placeholder = '__$6206bf2454c1dcfb641741f43bf52b101f$__'
+
+    it('zeroes unresolved solc library placeholders', () => {
+      expect(zeroOutSolcLibraryPlaceholders(`0x6000${placeholder}6001`)).equals(
+        `0x6000${'00'.repeat(20)}6001`
+      )
+    })
+
+    it('gets constructor args when artifact bytecode has library placeholders', () => {
+      const artifactBytecode = `0x6000${placeholder}6001`
+      const initCodeWithArgs = `0x6000${'12'.repeat(20)}6001deadbeef`
+
+      expect(
+        getAbiEncodedConstructorArgs(initCodeWithArgs, artifactBytecode)
+      ).equals('0xdeadbeef')
     })
   })
 

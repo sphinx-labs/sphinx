@@ -17,6 +17,7 @@ import {
   makeDeploymentConfig,
   DEFAULT_CALL_DEPTH,
   syncSphinxLock,
+  zeroOutSolcLibraryPlaceholders,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -453,7 +454,9 @@ export const propose = async (
     },
   }
 
-  const deploymentConfigData = JSON.stringify(deploymentConfig, null, 2)
+  const deploymentConfigData = zeroOutSolcLibraryPlaceholders(
+    JSON.stringify(deploymentConfig, null, 2)
+  )
 
   if (isDryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
