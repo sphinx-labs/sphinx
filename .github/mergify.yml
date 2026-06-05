@@ -13,19 +13,19 @@ pull_request_rules:
   - name: Automatic merge on approval (main)
     conditions:
       - and:
-        - "base=main"
-        - "#review-threads-unresolved=0"
-        - "#approved-reviews-by>=1"
-        - "#changes-requested-reviews-by=0"
-        - "label!=do-not-merge"
-        - "label!=mergify-ignore"
-        - "check-success=ci/circleci: plugins-tests"
-        - "check-success=ci/circleci: contracts-tests"
-        - "check-success=ci/circleci: core-tests"
-        - "check-success=ci/circleci: demo-tests"
-        - "check-success=ci/circleci: executor-tests"
-        - "check-success=ci/circleci: yarn-monorepo"
-        - "check-success=license/cla"
+          - "base=main"
+          - "#review-threads-unresolved=0"
+          - "#approved-reviews-by>=1"
+          - "#changes-requested-reviews-by=0"
+          - "label!=do-not-merge"
+          - "label!=mergify-ignore"
+          - "check-success=ci/circleci: plugins-tests"
+          - "check-success=ci/circleci: contracts-tests"
+          - "check-success=ci/circleci: core-tests"
+          - "check-success=ci/circleci: demo-tests"
+          - "check-success=ci/circleci: executor-tests"
+          - "check-success=ci/circleci: yarn-monorepo"
+          - "check-success=license/cla"
     actions:
       queue:
         name: main-queue
@@ -33,19 +33,19 @@ pull_request_rules:
   - name: Automatic merge on approval (develop)
     conditions:
       - and:
-        - "base=develop"
-        - "#review-threads-unresolved=0"
-        - "#approved-reviews-by>=1"
-        - "#changes-requested-reviews-by=0"
-        - "label!=do-not-merge"
-        - "label!=mergify-ignore"
-        - "check-success=ci/circleci: plugins-tests"
-        - "check-success=ci/circleci: contracts-tests"
-        - "check-success=ci/circleci: core-tests"
-        - "check-success=ci/circleci: demo-tests"
-        - "check-success=ci/circleci: executor-tests"
-        - "check-success=ci/circleci: yarn-monorepo"
-        - "check-success=license/cla"
+          - "base=develop"
+          - "#review-threads-unresolved=0"
+          - "#approved-reviews-by>=1"
+          - "#changes-requested-reviews-by=0"
+          - "label!=do-not-merge"
+          - "label!=mergify-ignore"
+          - "check-success=ci/circleci: plugins-tests"
+          - "check-success=ci/circleci: contracts-tests"
+          - "check-success=ci/circleci: core-tests"
+          - "check-success=ci/circleci: demo-tests"
+          - "check-success=ci/circleci: executor-tests"
+          - "check-success=ci/circleci: yarn-monorepo"
+          - "check-success=license/cla"
     actions:
       queue:
         name: develop-queue
@@ -55,8 +55,8 @@ pull_request_rules:
       - "queue-position >= 0"
     actions:
       comment:
-          message: |
-            This PR has been added to the merge queue, and will be merged soon.
+        message: |
+          This PR has been added to the merge queue, and will be merged soon.
       label:
         add:
           - on-merge-train
@@ -89,7 +89,7 @@ pull_request_rules:
 
   - name: Notify author when added to merge queue
     conditions:
-      - "check-pending=Queue: Embarked in merge train"
+      - "check-pending=Queue: Embarked in merge queue"
     actions:
       comment:
         message: |
@@ -97,7 +97,7 @@ pull_request_rules:
 
   - name: Notify author when merge queue failed
     conditions:
-      - "check-failure=Queue: Embarked in merge train"
+      - "check-failure=Queue: Embarked in merge queue"
     actions:
       comment:
         message: |
@@ -106,8 +106,8 @@ pull_request_rules:
   - name: Nag changesets
     conditions:
       - and:
-        - 'files~=\.((?<!\.spec\.)ts|js|sol)$'
-        - '-files~=^\.changeset/(.*)\.md'
+          - 'files~=\.((?<!\.spec\.)ts|js|sol)$'
+          - '-files~=^\.changeset/(.*)\.md'
     actions:
       comment:
         message: |
